@@ -1,0 +1,5 @@
+🚀 Server running on http://localhost:3000
+📊 MongoDB Compass Connection: mongodb://localhost:27017/esports_tournament_db
+🌐 Frontend available at: http://localhost:3000
+✅ Connected to MongoDB successfully!
+🔍 You can now use MongoDB Compass to view your data at: mongodb://localhost:27017/esports_tournament_db

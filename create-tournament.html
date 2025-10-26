@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Tournament - Esports Management System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #b8b8d1;
+            font-size: 1.1em;
+        }
+
+        /* Form Container */
+        .form-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            animation: fadeInUp 0.8s ease;
+        }
+
+        /* Section Titles */
+        .section-title {
+            font-size: 1.5em;
+            color: #667eea;
+            margin: 30px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title:first-child {
+            margin-top: 0;
+        }
+
+        /* Form Groups */
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #e0e0e0;
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        .form-group label span {
+            color: #ff6b6b;
+            margin-left: 3px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        /* Game Selection Cards */
+        .game-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            border-color: #667eea;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .game-card.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.2);
+        }
+
+        .game-card input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+        }
+
+        .game-card .game-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .game-card .game-name {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .game-card .game-platform {
+            font-size: 0.85em;
+            color: #b8b8d1;
+        }
+
+        /* Mode Selection */
+        .mode-selection {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .mode-option {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .mode-option input[type="radio"] {
+            display: none;
+        }
+
+        .mode-label {
+            display: block;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .mode-option input[type="radio"]:checked + .mode-label {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: #667eea;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .mode-label:hover {
+            border-color: #667eea;
+        }
+
+        /* Prize Pool Section */
+        .prize-info {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .prize-info p {
+            color: #ffd700;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .prize-info strong {
+            color: #fff;
+        }
+
+        /* Entry Fee Toggle */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.4s;
+            border-radius: 30px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
+        /* Requirements Section */
+        .requirements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        /* Buttons */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 40px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Hidden Field */
+        .hidden {
+            display: none;
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .form-container {
+                padding: 25px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .game-selection {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Input Placeholders */
+        ::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Select Arrow Styling */
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 20px;
+            padding-right: 40px;
+        }
+
+        /* Date Input Styling */
+        input[type="date"],
+        input[type="datetime-local"] {
+            color-scheme: dark;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Create New Tournament</h1>
+            <p>Set up your esports tournament in minutes</p>
+        </div>
+
+        <div class="form-container">
+            <form id="tournamentForm">
+                
+                <!-- Tournament Basic Info -->
+                <div class="section-title">📋 Tournament Details</div>
+                
+                <div class="form-group">
+                    <label for="tournamentName">Tournament Name<span>*</span></label>
+                    <input type="text" id="tournamentName" name="tournamentName" 
+                           placeholder="e.g., Winter Championship 2025" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="registrationDeadline">Registration Deadline<span>*</span></label>
+                        <input type="datetime-local" id="registrationDeadline" name="registrationDeadline" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="endDate">Match Timing<span>*</span></label>
+                        <input type="datetime-local" id="endDate" name="endDate" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    
+                    <div class="form-group">
+                        <label for="maxTeams">Maximum Teams/Players<span>*</span></label>
+                        <input type="number" id="maxTeams" name="maxTeams" 
+                               placeholder="e.g., 32" min="2" required>
+                    </div>
+                </div>
+
+                <!-- Game Selection -->
+                <div class="section-title">🎯 Game Selection</div>
+                
+                <div class="game-selection">
+                    <label class="game-card" id="pubgCard">
+                        <input type="radio" name="game" value="pubg" required>
+                        <div class="game-icon">📱</div>
+                        <div class="game-name">PUBG Mobile</div>
+                        <div class="game-platform">Mobile Platform</div>
+                    </label>
+
+                    <label class="game-card" id="valorantCard">
+                        <input type="radio" name="game" value="valorant" required>
+                        <div class="game-icon">💻</div>
+                        <div class="game-name">Valorant</div>
+                        <div class="game-platform">PC Platform</div>
+                    </label>
+
+                    <label class="game-card" id="codCard">
+                        <input type="radio" name="game" value="cod" required>
+                        <div class="game-icon">🎮</div>
+                        <div class="game-name">Call of Duty</div>
+                        <div class="game-platform">Multi-Platform</div>
+                    </label>
+                </div>
+
+                <!-- Tournament Mode -->
+                <div class="section-title">👥 Tournament Mode</div>
+                
+                <div class="mode-selection">
+                    <div class="mode-option">
+                        <input type="radio" name="mode" value="solo" id="modeSolo" required>
+                        <label for="modeSolo" class="mode-label">
+                            👤 Solo<br>
+                            <small style="font-size: 0.85em; opacity: 0.8;">1v1</small>
+                        </label>
+                    </div>
+                    <div class="mode-option">
+                        <input type="radio" name="mode" value="duo" id="modeDuo">
+                        <label for="modeDuo" class="mode-label">
+                            👥 Duo<br>
+                            <small style="font-size: 0.85em; opacity: 0.8;">2v2</small>
+                        </label>
+                    </div>
+                    <div class="mode-option">
+                        <input type="radio" name="mode" value="squad" id="modeSquad">
+                        <label for="modeSquad" class="mode-label">
+                            👨‍👩‍👦‍👦 Squad<br>
+                            <small style="font-size: 0.85em; opacity: 0.8;">4v4+</small>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Prize Pool -->
+                <div class="section-title">💰 Prize Pool & Entry Fee</div>
+                
+                <div class="prize-info">
+                    <p><strong>🔒 Secure Escrow System:</strong> Your prize pool will be held in our secure escrow account until winners are declared. This guarantees prize authenticity and builds player trust.</p>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="prizePool">Total Prize Pool (₹)<span>*</span></label>
+                        <input type="number" id="prizePool" name="prizePool" 
+                               placeholder="e.g., 50000" min="1000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prizeDistribution">Prize Distribution</label>
+                        <select id="prizeDistribution" name="prizeDistribution">
+                            <option value="winner-takes-all">Winner Takes All (100%)</option>
+                            <option value="60-30-10" selected>1st: 60%, 2nd: 30%, 3rd: 10%</option>
+                            <option value="50-30-20">1st: 50%, 2nd: 30%, 3rd: 20%</option>
+                            <option value="70-20-10">1st: 70%, 2nd: 20%, 3rd: 10%</option>
+                            <option value="custom">Custom Distribution</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="toggle-container">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="hasEntryFee" name="hasEntryFee">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <label for="hasEntryFee" style="cursor: pointer;">
+                        <strong>Enable Entry Fee</strong>
+                        <p style="font-size: 0.85em; color: #b8b8d1; margin-top: 3px;">
+                            Players pay to participate in the tournament
+                        </p>
+                    </label>
+                </div>
+
+                <div class="form-group hidden" id="entryFeeField">
+                    <label for="entryFee">Entry Fee per Player/Team (₹)<span>*</span></label>
+                    <input type="number" id="entryFee" name="entryFee" 
+                           placeholder="e.g., 500" min="0">
+                </div>
+
+                <!-- Player Requirements -->
+                <div class="section-title">✅ Player Requirements</div>
+                
+                <div class="requirements-grid">
+                    
+                    <div class="form-group">
+                        <label for="minRank">Minimum Rank/Level</label>
+                        <input type="text" id="minRank" name="minRank" 
+                               placeholder="e.g., Gold II">
+                    </div>
+                    <div class="form-group">
+                        <label for="region">Region</label>
+                        <select id="region" name="region">
+                            <option value="global">Global (All Regions)</option>
+                            <option value="asia" selected>Asia</option>
+                            <option value="europe">Europe</option>
+                            <option value="north-america">North America</option>
+                            <option value="south-america">South America</option>
+                            <option value="oceania">Oceania</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="server">Server</label>
+                        <input type="text" id="server" name="server" 
+                               placeholder="e.g., Asia Pacific">
+                    </div>
+                </div>
+
+                <!-- Tournament Rules -->
+                <!-- <div class="section-title">📜 Tournament Rules & Format</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="format">Tournament Format<span>*</span></label>
+                        <select id="format" name="format" required>
+                            <option value="">Select Format</option>
+                            <option value="battle-royale">Battle Royale</option>
+                            <option value="single-elimination">Single Elimination</option>
+                            <option value="double-elimination">Double Elimination</option>
+                            <option value="round-robin">Round Robin</option>
+                            <option value="swiss">Swiss System</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="numberOfMatches">Number of Matches<span>*</span></label>
+                        <input type="number" id="numberOfMatches" name="numberOfMatches" 
+                               placeholder="e.g., 5" min="1" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="rules">Detailed Rules & Regulations<span>*</span></label>
+                    <textarea id="rules" name="rules" 
+                              placeholder="Enter tournament rules, anti-cheat policies, dispute resolution process, etc." 
+                              required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Tournament Description</label>
+                    <textarea id="description" name="description" 
+                              placeholder="Describe your tournament, what makes it special, and why players should join..."></textarea>
+                </div> -->
+
+                <!-- Stream & Social -->
+                <div class="section-title">📺 Streaming & Social Media (Optional)</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="streamUrl">Live Stream URL</label>
+                        <input type="url" id="streamUrl" name="streamUrl" 
+                               placeholder="https://youtube.com/live/...">
+                    </div>
+                    <div class="form-group">
+                        <label for="discordUrl">Discord Server</label>
+                        <input type="url" id="discordUrl" name="discordUrl" 
+                               placeholder="https://discord.gg/...">
+                    </div>
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" onclick="goBack()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        Create Tournament 🚀
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Check if organizer is logged in
+        function checkAuth() {
+            const userData = localStorage.getItem('esports_user');
+            const userType = localStorage.getItem('esports_user_type');
+            
+            if (!userData || !userType) {
+                alert('Please login as an organizer to create tournaments');
+                window.location.href = '/';
+                return null;
+            }
+            
+            if (userType !== 'organizer') {
+                alert('Only organizers can create tournaments');
+                window.location.href = '/';
+                return null;
+            }
+            
+            return JSON.parse(userData);
+        }
+
+        const currentUser = checkAuth();
+        
+        // If no user (already redirected), stop script execution
+        if (!currentUser) {
+            throw new Error('Not authenticated');
+        }
+
+        // Game Card Selection
+        const gameCards = document.querySelectorAll('.game-card');
+        const gameInputs = document.querySelectorAll('input[name="game"]');
+
+        gameInputs.forEach((input, index) => {
+            input.addEventListener('change', function() {
+                gameCards.forEach(card => card.classList.remove('selected'));
+                if (this.checked) {
+                    gameCards[index].classList.add('selected');
+                }
+            });
+        });
+
+        gameCards.forEach((card, index) => {
+            card.addEventListener('click', function() {
+                gameInputs[index].checked = true;
+                gameCards.forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // Entry Fee Toggle
+        const entryFeeToggle = document.getElementById('hasEntryFee');
+        const entryFeeField = document.getElementById('entryFeeField');
+        const entryFeeInput = document.getElementById('entryFee');
+
+        entryFeeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                entryFeeField.classList.remove('hidden');
+                entryFeeInput.required = true;
+            } else {
+                entryFeeField.classList.add('hidden');
+                entryFeeInput.required = false;
+                entryFeeInput.value = '0';
+            }
+        });
+
+        // Date Validation
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const regDeadline = document.getElementById('registrationDeadline');
+
+        // Set minimum dates to today
+        const today = new Date().toISOString().slice(0, 16);
+        startDate.min = today;
+        endDate.min = today;
+        regDeadline.min = today;
+
+        startDate.addEventListener('change', function() {
+            endDate.min = this.value;
+            regDeadline.max = this.value;
+        });
+
+        // Form Submission
+        document.getElementById('tournamentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!currentUser) return;
+
+            // Validate dates
+            if (new Date(startDate.value) >= new Date(endDate.value)) {
+                alert('End date must be after start date!');
+                return;
+            }
+
+            if (new Date(regDeadline.value) >= new Date(startDate.value)) {
+                alert('Registration deadline must be before tournament start date!');
+                return;
+            }
+
+            // Collect form data
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Add organizer information
+            data.organizerId = currentUser.id;
+            data.organizerName = currentUser.name;
+            
+            // Convert checkbox to boolean
+            data.hasEntryFee = entryFeeToggle.checked;
+            if (!data.hasEntryFee) {
+                data.entryFee = 0;
+            }
+
+            // Convert numbers
+            data.maxTeams = parseInt(data.maxTeams);
+            data.prizePool = parseInt(data.prizePool);
+            data.entryFee = parseInt(data.entryFee) || 0;
+            data.minAge = parseInt(data.minAge);
+            data.numberOfMatches = parseInt(data.numberOfMatches);
+
+            console.log('Tournament Data:', data);
+
+            // Disable submit button
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span> Creating...';
+
+            try {
+                // Send data to backend
+                const response = await fetch('/tables/tournaments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('🎉 Tournament Created Successfully!\n\nYour tournament has been published and players can now register!');
+                    window.location.href = '/';
+                } else {
+                    throw new Error(result.message || 'Failed to create tournament');
+                }
+            } catch (error) {
+                console.error('Error creating tournament:', error);
+                alert('Error: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Create Tournament 🚀';
+            }
+        });
+
+        // Auto-calculate team size based on mode
+        const modeInputs = document.querySelectorAll('input[name="mode"]');
+        modeInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                const maxTeamsInput = document.getElementById('maxTeams');
+                if (this.value === 'solo') {
+                    maxTeamsInput.placeholder = 'e.g., 100 players';
+                } else if (this.value === 'duo') {
+                    maxTeamsInput.placeholder = 'e.g., 50 teams (100 players)';
+                } else {
+                    maxTeamsInput.placeholder = 'e.g., 25 teams (100 players)';
+                }
+            });
+        });
+
+        function goBack() {
+            if (confirm('Are you sure you want to cancel? All data will be lost.')) {
+                window.location.href = '/';
+            }
+        }
+    </script>
+</body>
+</html>
