@@ -35,10 +35,14 @@ mongoose.connect(MONGODB_URI, {
 // Import routes
 const organizerRoutes = require('./routes/organizers');
 const tournamentRoutes = require('./routes/tournaments');
+const playerRoutes = require('./routes/players');
+const walletRoutes = require('./routes/wallet');
 
 // API Routes
 app.use('/tables/organizers', organizerRoutes);
 app.use('/tables/tournaments', tournamentRoutes);
+app.use('/tables/players', playerRoutes);
+app.use('/wallet', walletRoutes);
 
 // Serve the main HTML file for the root route
 app.get('/', (req, res) => {
@@ -48,6 +52,11 @@ app.get('/', (req, res) => {
 // Serve the tournament creation page
 app.get('/create-tournament', (req, res) => {
     res.sendFile(path.join(__dirname, 'create-tournament.html'));
+});
+
+// Serve the player registration page
+app.get('/player-registration', (req, res) => {
+    res.sendFile(path.join(__dirname, 'player-registration.html'));
 });
 
 // Health check endpoint
@@ -78,10 +87,37 @@ app.use('*', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📊 MongoDB Compass Connection: ${MONGODB_URI}`);
-    console.log(`🌐 Frontend available at: http://localhost:${PORT}`);
-});
+// Graceful port binding with automatic fallback if port is busy
+function startServer(targetPort, attempt = 1, maxAttempts = 10) {
+    const server = app.listen(targetPort, () => {
+        console.log(`🚀 Server running on http://localhost:${targetPort}`);
+        console.log(`📊 MongoDB Compass Connection: ${MONGODB_URI}`);
+        console.log(`🌐 Frontend available at: http://localhost:${targetPort}`);
+        if (attempt > 1) {
+            console.log(`✅ Fallback succeeded on port ${targetPort} (original requested port: ${PORT})`);
+        }
+    });
+
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`❌ Port ${targetPort} is already in use.`);
+            if (attempt < maxAttempts) {
+                const nextPort = targetPort + 1;
+                console.log(`🔄 Attempting to use next port: ${nextPort} (attempt ${attempt + 1}/${maxAttempts})`);
+                startServer(nextPort, attempt + 1, maxAttempts);
+            } else {
+                console.error('⚠️ Max attempts reached. Could not bind to a free port. Please free a port and retry.');
+                process.exit(1);
+            }
+        } else {
+            console.error('🚨 Server failed to start:', err);
+            process.exit(1);
+        }
+    });
+}
+
+// Start with requested PORT env (defaults to 3000) and auto-fallback if needed
+const requestedPort = parseInt(PORT, 10) || 3000;
+startServer(requestedPort);
 
 module.exports = app;

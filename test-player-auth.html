@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Auth Test - Esports System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 text-center">🎮 Player Authentication System Test</h1>
+        
+        <!-- Test Navigation -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4">Quick Navigation</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <a href="/" class="bg-blue-600 hover:bg-blue-700 p-4 rounded-lg text-center transition">
+                    🏠 Home Page
+                </a>
+                <a href="/player-registration.html" class="bg-green-600 hover:bg-green-700 p-4 rounded-lg text-center transition">
+                    📝 Player Registration
+                </a>
+                <a href="/player-login.html" class="bg-purple-600 hover:bg-purple-700 p-4 rounded-lg text-center transition">
+                    🔐 Player Login
+                </a>
+                <a href="/player-dashboard.html" class="bg-indigo-600 hover:bg-indigo-700 p-4 rounded-lg text-center transition">
+                    📊 Player Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Current Session Status -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4">Current Session Status</h2>
+            <div id="session-info" class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Status:</span>
+                    <span id="auth-status" class="font-semibold">Checking...</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">User Type:</span>
+                    <span id="user-type" class="font-semibold">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">User ID:</span>
+                    <span id="user-id" class="font-mono text-sm">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Name:</span>
+                    <span id="user-name">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Email:</span>
+                    <span id="user-email">-</span>
+                </div>
+            </div>
+            <button onclick="clearSession()" class="mt-4 w-full bg-red-600 hover:bg-red-700 p-3 rounded-lg transition">
+                Clear Session (Logout)
+            </button>
+        </div>
+
+        <!-- Test Scenarios -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4">Test Scenarios</h2>
+            <div class="space-y-4">
+                <div class="bg-gray-700 p-4 rounded">
+                    <h3 class="font-bold mb-2">✅ Scenario 1: New Player Registration</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-300">
+                        <li>Go to Player Registration</li>
+                        <li>Fill in the form with your details</li>
+                        <li>Click "Register Now"</li>
+                        <li><strong>SAVE YOUR PLAYER ID!</strong> (displayed after registration)</li>
+                        <li>Click "Sign In Now" button</li>
+                    </ol>
+                </div>
+
+                <div class="bg-gray-700 p-4 rounded">
+                    <h3 class="font-bold mb-2">✅ Scenario 2: Player Login</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-300">
+                        <li>Go to Player Login</li>
+                        <li>Enter your Player ID (from registration)</li>
+                        <li>Enter your Email</li>
+                        <li>Click "Sign In"</li>
+                        <li>You'll be redirected to Player Dashboard</li>
+                    </ol>
+                </div>
+
+                <div class="bg-gray-700 p-4 rounded">
+                    <h3 class="font-bold mb-2">✅ Scenario 3: Browse Tournaments as Player</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-300">
+                        <li>Login as a player</li>
+                        <li>View active tournaments on dashboard</li>
+                        <li>Use filters to find specific tournaments (Game/Mode)</li>
+                        <li>Click "View Details" on any tournament</li>
+                    </ol>
+                </div>
+
+                <div class="bg-gray-700 p-4 rounded">
+                    <h3 class="font-bold mb-2">⛔ Scenario 4: Player Cannot Create Tournaments</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-300">
+                        <li>Login as a player</li>
+                        <li>Go to home page</li>
+                        <li>Try clicking "Create Tournament"</li>
+                        <li>You'll get an error: "Please login as an organizer"</li>
+                        <li>Players can ONLY browse tournaments, not create them</li>
+                    </ol>
+                </div>
+
+                <div class="bg-gray-700 p-4 rounded">
+                    <h3 class="font-bold mb-2">✅ Scenario 5: Access Control Test</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-300">
+                        <li>Logout (clear session)</li>
+                        <li>Try accessing Player Dashboard directly</li>
+                        <li>You'll be redirected to login page</li>
+                        <li>Protected pages require authentication</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Test -->
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h2 class="text-2xl font-bold mb-4">API Status Test</h2>
+            <button onclick="testAPI()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg transition mb-4">
+                Test API Connection
+            </button>
+            <div id="api-results" class="space-y-2 text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check current session
+        function checkSession() {
+            const user = localStorage.getItem('esports_user');
+            const userType = localStorage.getItem('esports_user_type');
+
+            if (user && userType) {
+                const userData = JSON.parse(user);
+                document.getElementById('auth-status').textContent = '✅ Logged In';
+                document.getElementById('auth-status').className = 'font-semibold text-green-400';
+                document.getElementById('user-type').textContent = userType.toUpperCase();
+                document.getElementById('user-id').textContent = userData.id || '-';
+                
+                if (userType === 'player') {
+                    document.getElementById('user-name').textContent = 
+                        `${userData.firstName} ${userData.lastName}` || '-';
+                    document.getElementById('user-email').textContent = userData.email || '-';
+                } else if (userType === 'organizer') {
+                    document.getElementById('user-name').textContent = userData.name || '-';
+                    document.getElementById('user-email').textContent = userData.email || '-';
+                }
+            } else {
+                document.getElementById('auth-status').textContent = '❌ Not Logged In';
+                document.getElementById('auth-status').className = 'font-semibold text-red-400';
+                document.getElementById('user-type').textContent = '-';
+                document.getElementById('user-id').textContent = '-';
+                document.getElementById('user-name').textContent = '-';
+                document.getElementById('user-email').textContent = '-';
+            }
+        }
+
+        // Clear session
+        function clearSession() {
+            localStorage.removeItem('esports_user');
+            localStorage.removeItem('esports_user_type');
+            alert('Session cleared! You are now logged out.');
+            checkSession();
+        }
+
+        // Test API
+        async function testAPI() {
+            const resultsDiv = document.getElementById('api-results');
+            resultsDiv.innerHTML = '<div class="text-yellow-400">Testing API endpoints...</div>';
+
+            const tests = [];
+
+            // Test health endpoint
+            try {
+                const healthRes = await fetch('/api/health');
+                const healthData = await healthRes.json();
+                tests.push(`✅ Health Check: ${healthData.status}`);
+            } catch (e) {
+                tests.push(`❌ Health Check: Failed - ${e.message}`);
+            }
+
+            // Test players endpoint
+            try {
+                const playersRes = await fetch('/tables/players?limit=5');
+                const playersData = await playersRes.json();
+                tests.push(`✅ Players API: ${playersData.total} total players`);
+            } catch (e) {
+                tests.push(`❌ Players API: Failed - ${e.message}`);
+            }
+
+            // Test tournaments endpoint
+            try {
+                const tournamentsRes = await fetch('/tables/tournaments?status=registration-open&limit=5');
+                const tournamentsData = await tournamentsRes.json();
+                tests.push(`✅ Tournaments API: ${tournamentsData.total} active tournaments`);
+            } catch (e) {
+                tests.push(`❌ Tournaments API: Failed - ${e.message}`);
+            }
+
+            resultsDiv.innerHTML = tests.map(t => `<div>${t}</div>`).join('');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkSession();
+        });
+    </script>
+</body>
+</html>

@@ -32,8 +32,9 @@ const tournamentSchema = new mongoose.Schema({
     },
     format: {
         type: String,
-        required: true,
-        enum: ['battle-royale', 'single-elimination', 'double-elimination', 'round-robin', 'swiss']
+        required: false,
+        enum: ['battle-royale', 'single-elimination', 'double-elimination', 'round-robin', 'swiss'],
+        default: 'battle-royale'
     },
     startDate: {
         type: Date,
@@ -41,7 +42,7 @@ const tournamentSchema = new mongoose.Schema({
     },
     endDate: {
         type: Date,
-        required: true
+        required: false
     },
     registrationDeadline: {
         type: Date,
@@ -75,8 +76,9 @@ const tournamentSchema = new mongoose.Schema({
     },
     minAge: {
         type: Number,
-        required: true,
-        min: 13
+        required: false,
+        min: 13,
+        default: 13
     },
     minRank: {
         type: String,
@@ -92,12 +94,14 @@ const tournamentSchema = new mongoose.Schema({
     },
     numberOfMatches: {
         type: Number,
-        required: true,
-        min: 1
+        required: false,
+        min: 1,
+        default: 1
     },
     rules: {
         type: String,
-        required: true
+        required: false,
+        default: 'Standard tournament rules apply.'
     },
     description: {
         type: String,
@@ -134,6 +138,14 @@ const tournamentSchema = new mongoose.Schema({
     }]
 }, {
     timestamps: true
+});
+
+// Additional financial tracking fields
+tournamentSchema.add({
+    entryFeeCollected: { type: Number, default: 0, min: 0 },
+    prizeLocked: { type: Number, default: 0, min: 0 },
+    prizeReleasedAt: { type: Date, default: null },
+    prizeReleaseNote: { type: String, default: '' }
 });
 
 // Indexes for better query performance

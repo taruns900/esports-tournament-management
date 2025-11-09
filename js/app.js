@@ -75,24 +75,33 @@ function showSection(sectionId) {
 //     }
 //}
 
-// Tab management for auth forms
-// function showPlayerTab(tab) {
-//     document.querySelectorAll('#player-auth-tabs .tab-btn').forEach(btn => {
-//         btn.classList.remove('border-gaming-accent');
-//         btn.classList.add('border-transparent');
-//     });
-    
-//     document.querySelectorAll('#player-login .auth-form').forEach(form => {
-//         form.classList.add('hidden');
-//         form.classList.remove('active');
-//     });
-    
-//     event.target.classList.add('border-gaming-accent');
-//     event.target.classList.remove('border-transparent');
-    
-//     document.getElementById(`player-${tab}-form`).classList.remove('hidden');
-//     document.getElementById(`player-${tab}-form`).classList.add('active');
-// }
+// Tab management for player auth forms
+function showPlayerTab(tab) {
+    // Update tab button styles
+    document.querySelectorAll('#player-auth-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('border-gaming-accent');
+        btn.classList.add('border-transparent');
+    });
+
+    // Hide all forms
+    document.querySelectorAll('#player-login .auth-form').forEach(form => {
+        form.classList.add('hidden');
+        form.classList.remove('active');
+    });
+
+    // Activate clicked tab
+    if (event && event.target) {
+        event.target.classList.add('border-gaming-accent');
+        event.target.classList.remove('border-transparent');
+    }
+
+    // Show selected form
+    const formEl = document.getElementById(`player-${tab}-form`);
+    if (formEl) {
+        formEl.classList.remove('hidden');
+        formEl.classList.add('active');
+    }
+}
 
 function showOrganizerTab(tab) {
     document.querySelectorAll('#organizer-auth-tabs .tab-btn').forEach(btn => {
@@ -315,20 +324,49 @@ async function loadStats() {
 }
 // Load and display tournaments
 async function loadTournaments() {
+    console.log('🔄 loadTournaments() called');
     try {
-        const response = await fetch('/tables/tournaments?limit=6&status=registration-open');
+    console.log('📡 Fetching top 3 active tournaments for home...');
+    // Show at most 3 cards on homepage. Use a small limit for the dashboard preview.
+    const response = await fetch('/tables/tournaments?limit=3&status=registration-open');
+        console.log('📥 Response received:', response.status, response.statusText);
+        
         const data = await response.json();
+        console.log('📦 Data parsed:', data);
+        console.log('📊 Total tournaments found:', data.total);
+        console.log('🎮 Tournaments data:', data.data);
         
         const tournamentsContainer = document.getElementById('tournaments-list');
+        console.log('🎯 Container element:', tournamentsContainer);
         
         if (data.success && data.data.length > 0) {
-            tournamentsContainer.innerHTML = data.data.map(tournament => `
+            // Filter out tournaments that started more than 2 hours ago
+            const now = Date.now();
+            const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+            const fresh = data.data.filter(t => {
+                if (!t.startDate) return true; // if startDate missing, keep
+                const startMs = new Date(t.startDate).getTime();
+                return now - startMs < TWO_HOURS_MS; // keep if <2h old
+            });
+            console.log(`⏱ Filtered tournaments (<=2h old): ${fresh.length}/${data.data.length}`);
+            
+            if (fresh.length === 0) {
+                tournamentsContainer.innerHTML = `
+                <div class="text-center col-span-full py-12 text-gray-400">
+                    <i class="fas fa-clock text-5xl mb-4 opacity-50"></i>
+                    <p class="text-xl">No current tournaments within the last 2 hours</p>
+                    <p class="text-sm mt-2">Check back soon or create a new one!</p>
+                </div>`;
+                console.log('⚠️ All tournaments are older than 2 hours.');
+                return;
+            }
+            console.log('✅ Rendering', data.data.length, 'tournaments...');
+            tournamentsContainer.innerHTML = fresh.map(tournament => `
                 <div class="bg-gray-800/50 rounded-xl overflow-hidden hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105">
                     <div class="bg-gradient-to-r from-gaming-primary to-gaming-secondary p-4">
                         <div class="flex justify-between items-start">
                             <div>
                                 <h3 class="text-xl font-bold text-white mb-1">${tournament.tournamentName}</h3>
-                                <p class="text-sm text-gray-200">by ${tournament.organizerName}</p>
                             </div>
                             <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
                                 OPEN
@@ -362,6 +400,10 @@ async function loadTournaments() {
                                 <span class="text-white">${tournament.hasEntryFee ? '₹' + tournament.entryFee : 'FREE'}</span>
                             </div>
                             <div class="flex justify-between">
+                                <span class="text-gray-400">Registration Deadline:</span>
+                                <span class="text-white">${new Date(tournament.registrationDeadline).toLocaleDateString()}</span>
+                            </div>
+                            <div class="flex justify-between">
                                 <span class="text-gray-400">Start Date:</span>
                                 <span class="text-white">${new Date(tournament.startDate).toLocaleDateString()}</span>
                             </div>
@@ -373,7 +415,10 @@ async function loadTournaments() {
                     </div>
                 </div>
             `).join('');
+            console.log('✅ Tournaments rendered successfully after time filter!');
+            console.log('📝 Container HTML length:', tournamentsContainer.innerHTML.length);
         } else {
+            console.log('⚠️ No tournaments found or invalid data');
             tournamentsContainer.innerHTML = `
                 <div class="text-center col-span-full py-12 text-gray-400">
                     <i class="fas fa-trophy text-5xl mb-4 opacity-50"></i>
@@ -382,8 +427,10 @@ async function loadTournaments() {
                 </div>
             `;
         }
+        console.log('✅ loadTournaments() completed successfully');
     } catch (error) {
-        console.error('Error loading tournaments:', error);
+        console.error('❌ Error loading tournaments:', error);
+        console.error('Error stack:', error.stack);
         document.getElementById('tournaments-list').innerHTML = `
             <div class="text-center col-span-full py-12 text-red-400">
                 <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>

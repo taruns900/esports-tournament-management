@@ -36,95 +36,133 @@ function logout() {
     showSection('home');
 }
 
-// Player Authentication
-// async function playerLogin(event) {
-//     event.preventDefault();
-//     showLoading();
-    
-//     const email = document.getElementById('player-email').value;
-//     const playerId = document.getElementById('player-id').value;
-    
-//     try {
-//         // Fetch player by email
-//         const response = await fetch(`tables/players?search=${email}`);
-//         const data = await response.json();
-        
-//         if (data.data.length > 0) {
-//             const player = data.data[0];
-            
-//             // Simple ID verification (in production, use proper auth)
-//             if (player.ingame_id === playerId) {
-//                 saveUserSession(player, 'player');
-//                 showNotification('Login successful!', 'success');
-//                 showPlayerDashboard();
-//             } else {
-//                 showNotification('Invalid credentials', 'error');
-//             }
-//         } else {
-//             showNotification('Player not found', 'error');
-//         }
-//     } catch (error) {
-//         console.error('Login error:', error);
-//         showNotification('Login failed', 'error');
-//     }
-    
-//     hideLoading();
-// }
+// Player Authentication (in-page forms, aligned with Player model)
+async function playerLogin(event) {
+    event.preventDefault();
+    if (typeof showLoading === 'function') showLoading();
 
-// async function playerRegister(event) {
-//     event.preventDefault();
-//     showLoading();
-    
-//     const formData = {
-//         id: generateId(),
-//         username: document.getElementById('reg-username').value,
-//         email: document.getElementById('reg-email').value,
-//         ingame_id: document.getElementById('reg-ingame-id').value,
-//         age: parseInt(document.getElementById('reg-age').value),
-//         rank: document.getElementById('reg-rank').value,
-//         platform: document.getElementById('reg-platform').value,
-//         region: document.getElementById('reg-region').value,
-//         wallet_balance: 0,
-//         total_tournaments: 0,
-//         wins: 0,
-//         total_earnings: 0
-//     };
-    
-//     try {
-//         // Check if email or ingame_id already exists
-//         const emailCheck = await fetch(`tables/players?search=${formData.email}`);
-//         const emailData = await emailCheck.json();
-        
-//         if (emailData.data.length > 0) {
-//             showNotification('Email already registered', 'error');
-//             hideLoading();
-//             return;
-//         }
-        
-//         // Create new player
-//         const response = await fetch('tables/players', {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify(formData)
-//         });
-        
-//         if (response.ok) {
-//             const newPlayer = await response.json();
-//             saveUserSession(newPlayer, 'player');
-//             showNotification('Registration successful!', 'success');
-//             showPlayerDashboard();
-//         } else {
-//             throw new Error('Registration failed');
-//         }
-//     } catch (error) {
-//         console.error('Registration error:', error);
-//         showNotification('Registration failed', 'error');
-//     }
-    
-//     hideLoading();
-// }
+    const email = document.getElementById('player-email').value.trim().toLowerCase();
+    const playerId = document.getElementById('player-id').value.trim();
+
+    try {
+        // Fetch player by ID first (direct lookup is cheaper)
+        const res = await fetch(`tables/players/${playerId}`);
+        if (!res.ok) {
+            showNotification('Player not found', 'error');
+            if (typeof hideLoading === 'function') hideLoading();
+            return;
+        }
+        const json = await res.json();
+        if (!json.success || !json.data) {
+            showNotification('Player not found', 'error');
+            if (typeof hideLoading === 'function') hideLoading();
+            return;
+        }
+
+        const player = json.data;
+        if (player.email.toLowerCase() !== email) {
+            showNotification('Invalid credentials. Email does not match.', 'error');
+            if (typeof hideLoading === 'function') hideLoading();
+            return;
+        }
+
+        // Save session
+        saveUserSession(player, 'player');
+        showNotification('Login successful! Redirecting...', 'success');
+
+        // Redirect to player dashboard (reuse existing browse handler)
+        setTimeout(() => {
+            window.location.href = '/player-dashboard.html';
+        }, 1200);
+    } catch (err) {
+        console.error('Player login error:', err);
+        showNotification('Login failed. Please try again.', 'error');
+    } finally {
+        if (typeof hideLoading === 'function') hideLoading();
+    }
+}
+
+async function playerRegister(event) {
+    event.preventDefault();
+    if (typeof showLoading === 'function') showLoading();
+
+    // Collect form data aligned to Player schema
+    const firstName = document.getElementById('reg-first-name').value.trim();
+    const lastName = document.getElementById('reg-last-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim().toLowerCase();
+    const phone = document.getElementById('reg-phone').value.trim();
+    const age = parseInt(document.getElementById('reg-age').value, 10);
+    const country = document.getElementById('reg-country').value.trim();
+    const genderInput = document.querySelector('input[name="reg-gender"]:checked');
+    const gender = genderInput ? genderInput.value : null;
+
+    // Basic validation
+    if (!firstName || !lastName || !email || !phone || !age || !country || !gender) {
+        showNotification('Please fill all required fields', 'error');
+        if (typeof hideLoading === 'function') hideLoading();
+        return;
+    }
+    if (age < 13 || age > 99) {
+        showNotification('Age must be between 13 and 99', 'error');
+        if (typeof hideLoading === 'function') hideLoading();
+        return;
+    }
+
+    const payload = {
+        id: 'plr_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36),
+        firstName,
+        lastName,
+        email,
+        age,
+        country,
+        phone,
+        gender,
+        status: 'active'
+    };
+
+    try {
+        // Check email uniqueness
+        const existingRes = await fetch(`tables/players?search=${encodeURIComponent(email)}`);
+        const existingJson = await existingRes.json();
+        if (existingJson.success && existingJson.data.some(p => p.email.toLowerCase() === email)) {
+            showNotification('Email already registered', 'error');
+            if (typeof hideLoading === 'function') hideLoading();
+            return;
+        }
+
+        const res = await fetch('tables/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!json.success) {
+            throw new Error(json.message || 'Registration failed');
+        }
+
+        showNotification(`✅ Registered successfully!\n📋 Your Player ID: ${payload.id}\n⚠️ Save this ID for login.`, 'success', 8000);
+
+        // Auto switch to login tab after showing success
+        setTimeout(() => {
+            // Reset form
+        const form = document.querySelector('#player-register-form form');
+            if (form) form.reset();
+            // Switch tab programmatically
+            const loginTabBtn = document.querySelector('#player-auth-tabs .tab-btn:first-child');
+            if (loginTabBtn) {
+                loginTabBtn.click();
+            }
+            // Pre-fill email field for convenience
+            const emailInput = document.getElementById('player-email');
+            if (emailInput) emailInput.value = email;
+        }, 8500);
+    } catch (err) {
+        console.error('Player registration error:', err);
+        showNotification(err.message || 'Registration failed', 'error');
+    } finally {
+        if (typeof hideLoading === 'function') hideLoading();
+    }
+}
 
 // Organizer Authentication
 async function organizerLogin(event) {

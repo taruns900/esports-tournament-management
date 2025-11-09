@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Tournament = require('../models/Tournament');
+const Organizer = require('../models/Organizer');
+const Player = require('../models/Player');
+const Transaction = require('../models/Transaction');
+function genId(prefix='txn_'){return prefix+Math.random().toString(36).slice(2,9)+Date.now().toString(36)}
 
 // GET all tournaments with filtering
 router.get('/', async (req, res) => {
@@ -96,34 +100,88 @@ router.get('/:id', async (req, res) => {
 // POST create new tournament
 router.post('/', async (req, res) => {
     try {
+        console.log('📝 Received tournament creation request');
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
+        
         const tournamentData = req.body;
 
         // Generate ID if not provided
         if (!tournamentData.id) {
             tournamentData.id = 'trn_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
         }
+        
+        console.log('Generated tournament ID:', tournamentData.id);
 
         // Validate dates
         const startDate = new Date(tournamentData.startDate);
-        const endDate = new Date(tournamentData.endDate);
+        const endDate = tournamentData.endDate ? new Date(tournamentData.endDate) : null;
         const regDeadline = new Date(tournamentData.registrationDeadline);
 
-        if (startDate >= endDate) {
+        // If endDate provided, validate it; otherwise allow it to be omitted
+        if (endDate && startDate > endDate) {
+            console.log('❌ Validation failed: End date must be on/after start date');
             return res.status(400).json({
                 success: false,
-                message: 'End date must be after start date'
+                message: 'End date must be on/after start date'
             });
         }
 
         if (regDeadline >= startDate) {
+            console.log('❌ Validation failed: Registration deadline must be before start date');
             return res.status(400).json({
                 success: false,
                 message: 'Registration deadline must be before start date'
             });
         }
 
-        const tournament = new Tournament(tournamentData);
+        console.log('✅ Date validation passed');
+
+        // If endDate is not provided, set it equal to startDate for compatibility
+        if (!tournamentData.endDate) {
+            tournamentData.endDate = tournamentData.startDate;
+        }
+
+        // Enforce organizer wallet has enough to cover prizePool
+        const organizer = await Organizer.findOne({ id: tournamentData.organizerId });
+        if (!organizer) {
+            return res.status(400).json({ success: false, message: 'Organizer not found' });
+        }
+        const prize = parseInt(tournamentData.prizePool, 10) || 0;
+        if ((organizer.walletBalance || 0) < prize) {
+            return res.status(400).json({ success: false, message: 'Insufficient organizer wallet balance to cover prize pool' });
+        }
+
+        // Lock prize amount (deduct from wallet, add to lockedPrizePool)
+        organizer.walletBalance -= prize;
+        organizer.lockedPrizePool = (organizer.lockedPrizePool || 0) + prize;
+        await organizer.save();
+
+        // Save tournament and reflect prize locked on tournament doc
+        console.log('💾 Saving tournament to MongoDB...');
+        const tournament = new Tournament({
+            ...tournamentData,
+            prizeLocked: prize
+        });
         await tournament.save();
+
+        // Record transaction
+        await Transaction.create({
+            id: genId(),
+            userId: organizer.id,
+            userType: 'organizer',
+            type: 'lock',
+            amount: prize,
+            reference: `lock_prize_${tournament.id}`,
+            meta: { tournamentId: tournament.id }
+        });
+        
+        console.log('✅ Tournament saved successfully!');
+        console.log('Tournament details:', {
+            id: tournament.id,
+            name: tournament.tournamentName,
+            organizer: tournament.organizerName,
+            status: tournament.status
+        });
 
         res.status(201).json({
             success: true,
@@ -246,7 +304,7 @@ router.post('/:id/register', async (req, res) => {
 
         const { playerId, playerName, teamName } = req.body;
 
-        // Check if player already registered
+        // Check if player already registered BEFORE any financial operations
         const alreadyRegistered = tournament.participants.some(
             p => p.playerId === playerId
         );
@@ -256,6 +314,50 @@ router.post('/:id/register', async (req, res) => {
                 success: false,
                 message: 'Player already registered for this tournament'
             });
+        }
+
+        // If entry fee is required, deduct from player wallet and credit organizer
+        if (tournament.hasEntryFee && (tournament.entryFee || 0) > 0) {
+            const player = await Player.findOne({ id: playerId });
+            if (!player) {
+                return res.status(404).json({ success: false, message: 'Player not found' });
+            }
+            const fee = parseInt(tournament.entryFee, 10) || 0;
+            if ((player.walletBalance || 0) < fee) {
+                return res.status(400).json({ success: false, message: 'Insufficient player wallet balance to pay entry fee' });
+            }
+            player.walletBalance -= fee;
+            await player.save();
+
+            await Transaction.create({
+                id: genId(),
+                userId: player.id,
+                userType: 'player',
+                type: 'deduct',
+                amount: fee,
+                reference: `entry_fee_${tournament.id}`,
+                meta: { tournamentId: tournament.id }
+            });
+
+            // Credit the organizer with the entry fee
+            const organizer = await Organizer.findOne({ id: tournament.organizerId });
+            if (organizer) {
+                organizer.walletBalance = (organizer.walletBalance || 0) + fee;
+                await organizer.save();
+
+                await Transaction.create({
+                    id: genId(),
+                    userId: organizer.id,
+                    userType: 'organizer',
+                    type: 'fee-credit',
+                    amount: fee,
+                    reference: `entry_fee_credit_${tournament.id}`,
+                    meta: { tournamentId: tournament.id, fromPlayerId: player.id }
+                });
+            }
+
+            // Track total collected entry fees on the tournament
+            tournament.entryFeeCollected = (tournament.entryFeeCollected || 0) + fee;
         }
 
         // Add participant
@@ -286,3 +388,54 @@ router.post('/:id/register', async (req, res) => {
 });
 
 module.exports = router;
+// Release prize back to organizer wallet (simple release without distribution)
+router.post('/:id/release-prize', async (req, res) => {
+    try {
+        const tournament = await Tournament.findOne({ id: req.params.id });
+        if (!tournament) {
+            return res.status(404).json({ success: false, message: 'Tournament not found' });
+        }
+        if (tournament.status !== 'completed') {
+            return res.status(400).json({ success: false, message: 'Tournament not completed yet' });
+        }
+        if (!tournament.prizeLocked || tournament.prizeLocked <= 0) {
+            return res.status(400).json({ success: false, message: 'No locked prize to release' });
+        }
+        if (tournament.prizeReleasedAt) {
+            return res.status(400).json({ success: false, message: 'Prize already released' });
+        }
+
+        const organizer = await Organizer.findOne({ id: tournament.organizerId });
+        if (!organizer) {
+            return res.status(404).json({ success: false, message: 'Organizer not found' });
+        }
+
+        const amount = tournament.prizeLocked;
+        // Move from locked to wallet (in real app this would distribute to winners)
+        if ((organizer.lockedPrizePool || 0) < amount) {
+            return res.status(400).json({ success: false, message: 'Organizer locked pool insufficient' });
+        }
+        organizer.lockedPrizePool -= amount;
+        organizer.walletBalance += amount;
+        await organizer.save();
+
+        tournament.prizeLocked = 0;
+        tournament.prizeReleasedAt = new Date();
+        await tournament.save();
+
+        await Transaction.create({
+            id: genId(),
+            userId: organizer.id,
+            userType: 'organizer',
+            type: 'release',
+            amount,
+            reference: `release_prize_${tournament.id}`,
+            meta: { tournamentId: tournament.id }
+        });
+
+        res.json({ success: true, message: 'Prize released', data: { organizerBalance: organizer.walletBalance, tournamentId: tournament.id } });
+    } catch (err) {
+        console.error('Error releasing prize:', err);
+        res.status(500).json({ success: false, message: 'Error releasing prize', error: err.message });
+    }
+});

@@ -116,6 +116,48 @@ const organizerSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Wallet balance for organizer
+organizerSchema.add({
+    walletBalance: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    lockedPrizePool: {
+        type: Number,
+        default: 0,
+        min: 0
+    }
+});
+
+organizerSchema.methods.adjustWallet = async function(amount) {
+    const newBalance = this.walletBalance + amount;
+    if (newBalance < 0) {
+        throw new Error('Insufficient wallet balance');
+    }
+    this.walletBalance = newBalance;
+    await this.save();
+    return this.walletBalance;
+};
+
+organizerSchema.methods.lockPrizeAmount = async function(amount) {
+    if (this.walletBalance < amount) {
+        throw new Error('Insufficient wallet balance to lock prize amount');
+    }
+    this.walletBalance -= amount;
+    this.lockedPrizePool += amount;
+    await this.save();
+};
+
+organizerSchema.methods.releaseLockedPrize = async function(amount) {
+    if (this.lockedPrizePool < amount) {
+        throw new Error('Locked prize pool is less than amount to release');
+    }
+    this.lockedPrizePool -= amount;
+    this.walletBalance += amount;
+    await this.save();
+};
+
 // Indexes for better query performance
 organizerSchema.index({ email: 1 });
 organizerSchema.index({ status: 1 });

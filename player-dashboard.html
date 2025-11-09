@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Dashboard - Esports Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gaming: {
+                            primary: '#6366f1',
+                            secondary: '#8b5cf6',
+                            accent: '#06b6d4',
+                            dark: '#1f2937',
+                            darker: '#111827'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gradient-to-br from-gaming-darker via-gaming-dark to-gray-900 text-white min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-black/50 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-trophy text-gaming-accent text-2xl mr-3"></i>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-gaming-primary to-gaming-accent bg-clip-text text-transparent">
+                            EsportsHub - Player Dashboard
+                        </h1>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <span id="player-name" class="text-gray-300"></span>
+                    <button onclick="logout()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Player Info Section -->
+        <div class="bg-gradient-to-r from-gaming-primary/20 to-gaming-secondary/20 rounded-xl p-6 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-3xl font-bold mb-2">Welcome, <span id="player-full-name"></span>! 🎮</h2>
+                    <p class="text-gray-300">Browse and join active tournaments</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-400">Player ID</div>
+                    <div class="text-lg font-mono bg-black/30 px-3 py-1 rounded" id="player-id"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wallet Section -->
+        <div class="bg-gray-800/50 rounded-xl p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-2xl font-bold">💼 Wallet</h3>
+                <div class="text-sm text-gray-400">Secure funds for entry fees</div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <div class="text-sm text-gray-400 mb-1">Current Balance</div>
+                    <div id="player-wallet-balance" class="text-3xl font-bold text-green-400">₹0</div>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm text-gray-400 mb-2">Add Funds (₹)</label>
+                    <div class="flex gap-3">
+                        <input type="number" id="player-deposit-amount" min="1" placeholder="e.g., 500"
+                               class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none" />
+                        <button id="player-deposit-btn" class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg font-semibold">
+                            Deposit
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Withdraw (₹)</label>
+                    <div class="flex gap-3">
+                        <input type="number" id="player-withdraw-amount" min="1" placeholder="e.g., 300"
+                               class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none" />
+                        <button id="player-withdraw-btn" class="bg-yellow-600 hover:bg-yellow-700 px-5 py-2 rounded-lg font-semibold">
+                            Withdraw
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6">
+                <h4 class="text-lg font-semibold mb-3">Recent Transactions</h4>
+                <div id="player-transactions" class="space-y-2 text-sm text-gray-300">
+                    <div class="text-gray-500">No transactions yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gray-800/50 rounded-xl p-6 text-center">
+                <i class="fas fa-user-circle text-4xl text-gaming-accent mb-3"></i>
+                <div class="text-2xl font-bold" id="player-age">-</div>
+                <div class="text-gray-400 text-sm">Age</div>
+            </div>
+            <div class="bg-gray-800/50 rounded-xl p-6 text-center">
+                <i class="fas fa-globe text-4xl text-gaming-primary mb-3"></i>
+                <div class="text-2xl font-bold capitalize" id="player-country">-</div>
+                <div class="text-gray-400 text-sm">Country</div>
+            </div>
+            <div class="bg-gray-800/50 rounded-xl p-6 text-center">
+                <i class="fas fa-envelope text-4xl text-gaming-secondary mb-3"></i>
+                <div class="text-sm font-semibold" id="player-email">-</div>
+                <div class="text-gray-400 text-sm">Email</div>
+            </div>
+            <div class="bg-gray-800/50 rounded-xl p-6 text-center">
+                <i class="fas fa-check-circle text-4xl text-green-500 mb-3"></i>
+                <div class="text-2xl font-bold text-green-400">Active</div>
+                <div class="text-gray-400 text-sm">Status</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-gray-800/50 rounded-xl p-4 mb-6">
+            <div class="flex flex-wrap items-center gap-4">
+                <div>
+                    <label class="text-sm text-gray-400 mr-2">Game:</label>
+                    <select id="filter-game" class="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-gaming-primary">
+                        <option value="">All Games</option>
+                        <option value="valorant">Valorant</option>
+                        <option value="pubg">PUBG</option>
+                        <option value="cod">Call of Duty</option>
+                        <option value="bgmi">BGMI</option>
+                        <option value="freefire">Free Fire</option>
+                        <option value="csgo">CS:GO</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mr-2">Mode:</label>
+                    <select id="filter-mode" class="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-gaming-primary">
+                        <option value="">All Modes</option>
+                        <option value="solo">Solo</option>
+                        <option value="duo">Duo</option>
+                        <option value="squad">Squad</option>
+                    </select>
+                </div>
+                <button onclick="applyFilters()" class="bg-gaming-primary hover:bg-gaming-secondary px-6 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-filter mr-2"></i>Apply Filters
+                </button>
+                <button onclick="clearFilters()" class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-times mr-2"></i>Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Tournaments Section -->
+        <div class="mb-6">
+            <h3 class="text-2xl font-bold mb-4">🏆 Active Tournaments</h3>
+            <div id="tournaments-count" class="text-gray-400 mb-4"></div>
+        </div>
+
+        <div id="tournaments-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="text-center col-span-full py-12 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
+                <p class="text-lg">Loading tournaments...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Minimal toast for this page
+        function showToast(message, type='info', duration=3500){
+            const wrap = document.createElement('div');
+            wrap.style.position='fixed';wrap.style.top='20px';wrap.style.right='20px';wrap.style.zIndex='9999';
+            const note = document.createElement('div');
+            note.style.padding='12px 14px'; note.style.marginBottom='8px';
+            note.style.borderRadius='10px'; note.style.backdropFilter='blur(6px)';
+            note.style.border='1px solid rgba(255,255,255,0.15)'; note.style.boxShadow='0 6px 18px rgba(0,0,0,0.35)';
+            note.style.transform='translateX(120%)'; note.style.transition='transform .25s ease';
+            const colors={success:'rgba(16,185,129,0.25)',error:'rgba(239,68,68,0.25)',warning:'rgba(234,179,8,0.25)',info:'rgba(59,130,246,0.25)'};
+            note.style.background=colors[type]||colors.info; note.style.color='#fff';
+            note.innerText=message; wrap.appendChild(note); document.body.appendChild(wrap);
+            requestAnimationFrame(()=>{ note.style.transform='translateX(0)';});
+            setTimeout(()=>{ note.style.transform='translateX(120%)'; setTimeout(()=>wrap.remove(),250); }, duration);
+        }
+        let playerData = null;
+        let allTournaments = [];
+    let walletLoading = false;
+
+        // Check if player is logged in
+        function checkAuth() {
+            const user = localStorage.getItem('esports_user');
+            const userType = localStorage.getItem('esports_user_type');
+
+            if (!user || userType !== 'player') {
+                showToast('Please login first','warning');
+                window.location.href = '/player-login.html';
+                return null;
+            }
+
+            playerData = JSON.parse(user);
+            return playerData;
+        }
+
+        // Display player info
+        function displayPlayerInfo() {
+            if (!playerData) return;
+
+            document.getElementById('player-name').textContent = playerData.firstName;
+            document.getElementById('player-full-name').textContent = `${playerData.firstName} ${playerData.lastName}`;
+            document.getElementById('player-id').textContent = playerData.id;
+            document.getElementById('player-age').textContent = playerData.age || '-';
+            document.getElementById('player-country').textContent = playerData.country || '-';
+            document.getElementById('player-email').textContent = playerData.email || '-';
+        }
+
+        async function refreshPlayerWallet() {
+            try {
+                const res = await fetch(`/tables/players/${playerData.id}`);
+                const json = await res.json();
+                if (json.success && json.data) {
+                    const bal = json.data.walletBalance || 0;
+                    document.getElementById('player-wallet-balance').textContent = '₹' + Number(bal).toLocaleString();
+                }
+            } catch (err) {
+                console.error('Failed to load wallet', err);
+            }
+        }
+
+        async function loadPlayerTransactions() {
+            try {
+                const res = await fetch(`/wallet/transactions?userId=${encodeURIComponent(playerData.id)}&userType=player&limit=10`);
+                const json = await res.json();
+                const container = document.getElementById('player-transactions');
+                if (json.success && Array.isArray(json.data) && json.data.length) {
+                    container.innerHTML = json.data.map(tx => {
+                        const color = tx.type === 'deposit' ? 'text-green-400' : (tx.type === 'deduct' ? 'text-red-400' : 'text-yellow-400');
+                        const amtSign = tx.type === 'deposit' ? '+' : (tx.type === 'deduct' ? '-' : '');
+                        const when = new Date(tx.createdAt).toLocaleString();
+                        return `<div class="flex justify-between border border-gray-700 rounded-md p-2 bg-gray-800/40">
+                                    <span><span class="${color} font-semibold uppercase">${tx.type}</span> <span class="text-gray-400">${tx.reference || ''}</span></span>
+                                    <span class="${color} font-semibold">${amtSign}₹${Number(tx.amount).toLocaleString()}</span>
+                                    <span class="text-gray-400">${when}</span>
+                                </div>`;
+                    }).join('');
+                } else {
+                    container.innerHTML = '<div class="text-gray-500">No transactions yet</div>';
+                }
+            } catch (err) {
+                console.error('Failed to load transactions', err);
+            }
+        }
+
+        // Load all active tournaments
+        async function loadTournaments() {
+            try {
+                const response = await fetch('/tables/tournaments?status=registration-open&limit=1000');
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    allTournaments = result.data;
+                    displayTournaments(allTournaments);
+                } else {
+                    showNoTournaments();
+                }
+            } catch (error) {
+                console.error('Error loading tournaments:', error);
+                document.getElementById('tournaments-grid').innerHTML = `
+                    <div class="text-center col-span-full py-12 text-red-400">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p class="text-lg">Error loading tournaments</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Display tournaments
+        function displayTournaments(tournaments) {
+            const grid = document.getElementById('tournaments-grid');
+            const countEl = document.getElementById('tournaments-count');
+
+            if (tournaments.length === 0) {
+                showNoTournaments();
+                return;
+            }
+
+            countEl.textContent = `${tournaments.length} tournament${tournaments.length !== 1 ? 's' : ''} available`;
+
+            grid.innerHTML = tournaments.map(t => `
+                <div class="bg-gray-800/50 rounded-xl overflow-hidden hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 shadow-lg">
+                    <div class="bg-gradient-to-r from-gaming-primary to-gaming-secondary p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-xl font-bold text-white mb-1">${t.tournamentName}</h3>
+                                <p class="text-sm text-gray-200">by ${t.organizerName || 'Organizer'}</p>
+                            </div>
+                            <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                                OPEN
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="flex items-center gap-4 mb-4 text-sm">
+                            <span class="flex items-center gap-2">
+                                <i class="fas fa-gamepad text-gaming-accent"></i>
+                                <span class="capitalize">${t.game}</span>
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <i class="fas fa-users text-gaming-primary"></i>
+                                <span>${t.mode.toUpperCase()}</span>
+                            </span>
+                        </div>
+                        
+                        <div class="space-y-2 mb-4 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Prize Pool:</span>
+                                <span class="text-yellow-400 font-bold">₹${Number(t.prizePool).toLocaleString()}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Participants:</span>
+                                <span class="text-white">${t.currentParticipants || 0}/${t.maxTeams}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Entry Fee:</span>
+                                <span class="text-white">${t.hasEntryFee ? '₹' + Number(t.entryFee).toLocaleString() : 'FREE'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Registration Ends:</span>
+                                <span class="text-white">${new Date(t.registrationDeadline).toLocaleDateString()}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Start Date:</span>
+                                <span class="text-white">${new Date(t.startDate).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        
+                        <button onclick="viewTournamentDetails('${t.id}')" 
+                                class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
+                            <i class="fas fa-info-circle mr-2"></i>View Details
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Show no tournaments message
+        function showNoTournaments() {
+            const grid = document.getElementById('tournaments-grid');
+            const countEl = document.getElementById('tournaments-count');
+            
+            countEl.textContent = '0 tournaments available';
+            grid.innerHTML = `
+                <div class="text-center col-span-full py-12 text-gray-400">
+                    <i class="fas fa-trophy text-6xl mb-4 opacity-50"></i>
+                    <p class="text-xl font-semibold mb-2">No Active Tournaments</p>
+                    <p class="text-sm">Check back later for new tournaments!</p>
+                </div>
+            `;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const gameFilter = document.getElementById('filter-game').value.toLowerCase();
+            const modeFilter = document.getElementById('filter-mode').value.toLowerCase();
+
+            let filtered = allTournaments;
+
+            if (gameFilter) {
+                filtered = filtered.filter(t => t.game.toLowerCase() === gameFilter);
+            }
+
+            if (modeFilter) {
+                filtered = filtered.filter(t => t.mode.toLowerCase() === modeFilter);
+            }
+
+            displayTournaments(filtered);
+        }
+
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('filter-game').value = '';
+            document.getElementById('filter-mode').value = '';
+            displayTournaments(allTournaments);
+        }
+
+        // View tournament details
+        function viewTournamentDetails(tournamentId) {
+            showToast('Tournament details page coming soon!','info');
+        }
+
+        // Logout
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('esports_user');
+                localStorage.removeItem('esports_user_type');
+                window.location.href = '/';
+            }
+        }
+
+        // Deposit handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const depositBtn = document.getElementById('player-deposit-btn');
+            const withdrawBtn = document.getElementById('player-withdraw-btn');
+            if (depositBtn) {
+                depositBtn.addEventListener('click', async () => {
+                    if (walletLoading) return;
+                    const amtEl = document.getElementById('player-deposit-amount');
+                    const amt = parseInt(amtEl.value, 10);
+                    if (isNaN(amt) || amt <= 0) {
+                        showToast('Enter a valid deposit amount','warning');
+                        return;
+                    }
+                    walletLoading = true;
+                    depositBtn.disabled = true;
+                    depositBtn.textContent = 'Processing...';
+                    try {
+                        const res = await fetch('/wallet/deposit', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: playerData.id, userType: 'player', amount: amt })
+                        });
+                        const json = await res.json();
+                        if (json.success) {
+                            showToast(`Funds added! New balance: ₹${json.balance.toLocaleString()}`,'success');
+                            amtEl.value = '';
+                            await refreshPlayerWallet();
+                            await loadPlayerTransactions();
+                        } else {
+                            throw new Error(json.message || 'Deposit failed');
+                        }
+                    } catch (err) {
+                        showToast('Deposit error: ' + err.message, 'error');
+                    } finally {
+                        walletLoading = false;
+                        depositBtn.disabled = false;
+                        depositBtn.textContent = 'Deposit';
+                    }
+                });
+            }
+            if (withdrawBtn) {
+                withdrawBtn.addEventListener('click', async () => {
+                    if (walletLoading) return;
+                    const amtEl = document.getElementById('player-withdraw-amount');
+                    const amt = parseInt(amtEl.value, 10);
+                    if (isNaN(amt) || amt <= 0) { showToast('Enter a valid withdraw amount','warning'); return; }
+                    walletLoading = true; withdrawBtn.disabled = true; withdrawBtn.textContent='Processing...';
+                    try {
+                        const res = await fetch('/wallet/withdraw', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: playerData.id, userType: 'player', amount: amt })
+                        });
+                        const json = await res.json();
+                        if (json.success) {
+                            showToast(`Withdrawn ₹${amt.toLocaleString()} (New: ₹${json.balance.toLocaleString()})`,'success');
+                            amtEl.value='';
+                            await refreshPlayerWallet();
+                            await loadPlayerTransactions();
+                        } else { throw new Error(json.message || 'Withdraw failed'); }
+                    } catch(err){ showToast('Withdraw error: '+err.message,'error'); }
+                    finally { withdrawBtn.disabled=false; withdrawBtn.textContent='Withdraw'; walletLoading=false; }
+                });
+            }
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (checkAuth()) {
+                displayPlayerInfo();
+                await refreshPlayerWallet();
+                await loadPlayerTransactions();
+                loadTournaments();
+            }
+        });
+    </script>
+</body>
+
+</html>

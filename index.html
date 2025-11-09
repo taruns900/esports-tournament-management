@@ -60,11 +60,11 @@
                 <div id="auth-buttons" class="flex items-center space-x-4">
                     <button onclick="showSection('organizer-login')"
                         class="bg-gaming-primary hover:bg-gaming-secondary px-4 py-2 rounded-lg transition-colors">
-                        <i class="fas fa-user-tie mr-2"></i>Organizer
+                        <i class="fas fa-user-tie mr-2"></i>Organizer Login
                     </button>
-                    <button onclick="showComingSoon()"
-                        class="bg-gray-600 px-4 py-2 rounded-lg cursor-not-allowed opacity-60">
-                        <i class="fas fa-user-gamepad mr-2"></i>Player
+                    <button onclick="showSection('player-login')"
+                        class="bg-gaming-accent hover:bg-cyan-600 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Player Login
                     </button>
                 </div>
 
@@ -155,7 +155,7 @@
                 <div class="max-w-7xl mx-auto px-4">
                     <div class="flex justify-between items-center mb-8">
                         <h2 class="text-3xl font-bold">🏆 Active Tournaments</h2>
-                        <button onclick="browseTournaments()"
+                        <button onclick="window.location.href='/tournaments.html'"
                             class="text-gaming-accent hover:text-gaming-primary transition-colors">
                             View All <i class="fas fa-arrow-right ml-2"></i>
                         </button>
@@ -165,6 +165,44 @@
                         <div class="text-center col-span-full py-8 text-gray-400">
                             <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
                             <p>Loading tournaments...</p>
+                        </div>
+                    </div>
+                    <!-- Organizer Wallet Widget -->
+                    <div id="organizer-wallet" class="mt-16 hidden">
+                        <h3 class="text-2xl font-bold mb-6 flex items-center"><i class="fas fa-wallet text-gaming-accent mr-3"></i>Your Wallet</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-gray-800/60 rounded-xl p-6">
+                                <div class="text-gray-400 text-sm">Available Balance</div>
+                                <div class="text-3xl font-bold mt-2" id="org-wallet-balance">₹0</div>
+                            </div>
+                            <div class="bg-gray-800/60 rounded-xl p-6">
+                                <div class="text-gray-400 text-sm">Locked (Prize Pools)</div>
+                                <div class="text-3xl font-bold mt-2" id="org-wallet-locked">₹0</div>
+                            </div>
+                            <div class="bg-gray-800/60 rounded-xl p-6">
+                                <div class="text-gray-400 text-sm">Total Balance</div>
+                                <div class="text-3xl font-bold mt-2" id="org-wallet-total">₹0</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="bg-gray-800/50 rounded-xl p-6">
+                                <h4 class="font-semibold mb-4">Deposit Funds</h4>
+                                <form id="org-deposit-form" class="space-y-4" onsubmit="handleOrganizerDeposit(event)">
+                                    <input type="number" min="1" id="org-deposit-amount" placeholder="Amount" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none" required />
+                                    <button type="submit" class="w-full bg-gaming-accent hover:bg-cyan-600 py-2 rounded-lg font-semibold transition-colors">Deposit</button>
+                                </form>
+                            </div>
+                            <div class="bg-gray-800/50 rounded-xl p-6">
+                                <h4 class="font-semibold mb-4">Withdraw Funds</h4>
+                                <form id="org-withdraw-form" class="space-y-4" onsubmit="handleOrganizerWithdraw(event)">
+                                    <input type="number" min="1" id="org-withdraw-amount" placeholder="Amount" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none" required />
+                                    <button type="submit" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-2 rounded-lg font-semibold transition-colors">Withdraw</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="bg-gray-800/50 rounded-xl p-6 mt-8">
+                            <h4 class="font-semibold mb-4">Recent Transactions</h4>
+                            <div id="org-transactions" class="space-y-3 text-sm"></div>
                         </div>
                     </div>
                 </div>
@@ -235,63 +273,74 @@
                         <form onsubmit="playerRegister(event)">
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label class="block text-sm font-medium mb-2">Username</label>
-                                    <input type="text" id="reg-username"
+                                    <label class="block text-sm font-medium mb-2">First Name</label>
+                                    <input type="text" id="reg-first-name"
                                         class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
-                                        required>
+                                        minlength="2" maxlength="50" required>
                                 </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Last Name</label>
+                                    <input type="text" id="reg-last-name"
+                                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
+                                        minlength="2" maxlength="50" required>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label class="block text-sm font-medium mb-2">Email</label>
                                     <input type="email" id="reg-email"
                                         class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
                                         required>
                                 </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Phone</label>
+                                    <input type="tel" id="reg-phone"
+                                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
+                                        placeholder="e.g., +919876543210" required>
+                                </div>
                             </div>
                             <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-2">In-Game ID</label>
-                                    <input type="text" id="reg-ingame-id"
-                                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
-                                        required>
-                                </div>
                                 <div>
                                     <label class="block text-sm font-medium mb-2">Age</label>
-                                    <input type="number" id="reg-age" min="13"
-                                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
-                                        required>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-2">Rank</label>
-                                    <input type="text" id="reg-rank"
+                                    <input type="number" id="reg-age" min="13" max="99"
                                         class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
                                         required>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium mb-2">Platform</label>
-                                    <select id="reg-platform"
+                                    <label class="block text-sm font-medium mb-2">Country</label>
+                                    <select id="reg-country"
                                         class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
                                         required>
-                                        <option value="">Select Platform</option>
-                                        <option value="PC">PC</option>
-                                        <option value="Mobile">Mobile</option>
-                                        <option value="Console">Console</option>
+                                        <option value="">Select Country</option>
+                                        <option value="india">India</option>
+                                        <option value="usa">United States</option>
+                                        <option value="uk">United Kingdom</option>
+                                        <option value="canada">Canada</option>
+                                        <option value="australia">Australia</option>
+                                        <option value="pakistan">Pakistan</option>
+                                        <option value="bangladesh">Bangladesh</option>
+                                        <option value="srilanka">Sri Lanka</option>
+                                        <option value="nepal">Nepal</option>
+                                        <option value="other">Other</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="mb-6">
-                                <label class="block text-sm font-medium mb-2">Region</label>
-                                <select id="reg-region"
-                                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:border-gaming-accent focus:outline-none"
-                                    required>
-                                    <option value="">Select Region</option>
-                                    <option value="North America">North America</option>
-                                    <option value="Europe">Europe</option>
-                                    <option value="Asia Pacific">Asia Pacific</option>
-                                    <option value="South America">South America</option>
-                                    <option value="Middle East">Middle East</option>
-                                </select>
+                                <label class="block text-sm font-medium mb-2">Gender</label>
+                                <div class="flex items-center gap-6">
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="radio" name="reg-gender" id="reg-gender-male" value="male" required>
+                                        <span>Male</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="radio" name="reg-gender" id="reg-gender-female" value="female">
+                                        <span>Female</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="radio" name="reg-gender" id="reg-gender-other" value="other">
+                                        <span>Other</span>
+                                    </label>
+                                </div>
                             </div>
                             <button type="submit"
                                 class="w-full bg-gaming-accent hover:bg-cyan-600 py-2 rounded-lg font-semibold transition-colors">
@@ -446,8 +495,106 @@
 
         // Function to browse tournaments
         function browseTournaments() {
-            showNotification('Browse Tournaments feature coming soon!', 'info');
+            // Check if user is logged in
+            const userData = localStorage.getItem('esports_user');
+            const userType = localStorage.getItem('esports_user_type');
+
+            if (userData && userType === 'player') {
+                // Redirect to player dashboard
+                window.location.href = '/player-dashboard.html';
+            } else if (userData && userType === 'organizer') {
+                // Redirect to tournaments page
+                window.location.href = '/tournaments.html';
+            } else {
+                // Not logged in - redirect to login
+                alert('Please login to browse tournaments');
+                window.location.href = '/player-login.html';
+            }
         }
+
+        // Organizer Wallet Logic
+        async function refreshOrganizerWallet() {
+            const session = getUserSession();
+            if (!session || session.type !== 'organizer') return;
+            try {
+                const res = await fetch(`tables/organizers/${session.user.id}`);
+                const json = await res.json();
+                if (json.success) {
+                    const org = json.data;
+                    document.getElementById('org-wallet-balance').textContent = '₹' + (org.walletBalance || 0);
+                    document.getElementById('org-wallet-locked').textContent = '₹' + (org.lockedPrizePool || 0);
+                    document.getElementById('org-wallet-total').textContent = '₹' + ((org.walletBalance || 0) + (org.lockedPrizePool || 0));
+                }
+            } catch (e) { console.error('Wallet refresh error', e); }
+        }
+
+        async function loadOrganizerTransactions() {
+            const session = getUserSession();
+            if (!session || session.type !== 'organizer') return;
+            try {
+                const res = await fetch(`/wallet/transactions?userId=${session.user.id}&userType=organizer&limit=20`);
+                const json = await res.json();
+                const container = document.getElementById('org-transactions');
+                if (!json.success || json.data.length === 0) {
+                    container.innerHTML = '<p class="text-gray-400">No transactions yet.</p>';
+                    return;
+                }
+                container.innerHTML = json.data.map(tx => `<div class="flex justify-between items-center bg-gray-700/40 px-3 py-2 rounded">
+                    <span class="capitalize">${tx.type.replace('-', ' ')}</span>
+                    <span class="font-mono">₹${tx.amount}</span>
+                    <span class="text-xs text-gray-400">${new Date(tx.createdAt).toLocaleDateString()}</span>
+                </div>`).join('');
+            } catch (e) { console.error('Transactions load error', e); }
+        }
+
+        async function handleOrganizerDeposit(e) {
+            e.preventDefault();
+            const session = getUserSession();
+            if (!session || session.type !== 'organizer') return;
+            const amount = parseInt(document.getElementById('org-deposit-amount').value, 10);
+            if (isNaN(amount) || amount <= 0) return;
+            try {
+                const res = await fetch('/wallet/deposit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, userType: 'organizer', amount }) });
+                const json = await res.json();
+                if (json.success) {
+                    showNotification('Deposit successful', 'success');
+                    document.getElementById('org-deposit-form').reset();
+                    refreshOrganizerWallet();
+                    loadOrganizerTransactions();
+                } else showNotification(json.message || 'Deposit failed', 'error');
+            } catch (err) { console.error(err); showNotification('Deposit error', 'error'); }
+        }
+
+        async function handleOrganizerWithdraw(e) {
+            e.preventDefault();
+            const session = getUserSession();
+            if (!session || session.type !== 'organizer') return;
+            const amount = parseInt(document.getElementById('org-withdraw-amount').value, 10);
+            if (isNaN(amount) || amount <= 0) return;
+            try {
+                const res = await fetch('/wallet/withdraw', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, userType: 'organizer', amount }) });
+                const json = await res.json();
+                if (json.success) {
+                    showNotification('Withdrawal successful', 'success');
+                    document.getElementById('org-withdraw-form').reset();
+                    refreshOrganizerWallet();
+                    loadOrganizerTransactions();
+                } else showNotification(json.message || 'Withdrawal failed', 'error');
+            } catch (err) { console.error(err); showNotification('Withdrawal error', 'error'); }
+        }
+
+        // On load decide whether to show organizer wallet widget
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = getUserSession();
+            if (session && session.type === 'organizer') {
+                const widget = document.getElementById('organizer-wallet');
+                if (widget) {
+                    widget.classList.remove('hidden');
+                    refreshOrganizerWallet();
+                    loadOrganizerTransactions();
+                }
+            }
+        });
     </script>
 
     <script src="js/app.js"></script>
