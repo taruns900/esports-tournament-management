@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tournament Details - EsportsHub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white min-h-screen">
+  <nav class="bg-black/60 backdrop-blur-md border-b border-gray-800 p-4 sticky top-0 z-50 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <i class="fas fa-trophy text-gaming-accent text-2xl"></i>
+      <span class="font-bold text-lg">EsportsHub</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="goBack()" class="px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm"><i class="fas fa-arrow-left mr-1"></i>Back</button>
+      <button onclick="logout()" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto p-6">
+    <div id="loading" class="text-center py-16">
+      <i class="fas fa-spinner fa-spin text-4xl text-gaming-accent mb-4"></i>
+      <p class="text-gray-300">Loading tournament...</p>
+    </div>
+    <div id="content" class="hidden">
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="md:col-span-2 space-y-6">
+          <div class="bg-gray-800/50 rounded-xl p-6">
+            <h1 id="t-name" class="text-3xl font-bold mb-2">Tournament</h1>
+            <div id="t-status" class="text-xs inline-block px-3 py-1 rounded-full bg-gray-600 mb-4"></div>
+            <p id="t-desc" class="text-gray-300 text-sm leading-relaxed"></p>
+          </div>
+          <div class="bg-gray-800/50 rounded-xl p-6">
+            <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-info-circle text-gaming-accent mr-2"></i>Details</h2>
+            <div class="grid sm:grid-cols-2 gap-4 text-sm" id="t-details"></div>
+          </div>
+          <div class="bg-gray-800/50 rounded-xl p-6" id="organizer-actions" style="display:none">
+            <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-cogs text-gaming-primary mr-2"></i>Organizer Actions</h2>
+            <button id="release-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm disabled:opacity-50" disabled>Release Locked Prize</button>
+            <p id="release-note" class="text-xs text-gray-400 mt-3"></p>
+          </div>
+        </div>
+        <div class="space-y-6">
+          <div class="bg-gray-800/50 rounded-xl p-6">
+            <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-user-plus text-gaming-accent mr-2"></i>Join Tournament</h2>
+            <div id="join-block">
+              <div class="mb-4 text-sm">
+                <p><span class="text-gray-400">Entry Fee:</span> <span id="t-fee" class="font-semibold"></span></p>
+                <p><span class="text-gray-400">Your Wallet:</span> <span id="p-wallet" class="font-semibold"></span></p>
+                <p><span class="text-gray-400">Slots:</span> <span id="t-slots" class="font-semibold"></span></p>
+              </div>
+              <button id="join-btn" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors disabled:opacity-50">Join Now</button>
+              <p id="join-msg" class="text-xs mt-3 text-gray-400"></p>
+            </div>
+            <div id="already-msg" class="hidden text-green-400 text-sm font-semibold">You are already registered.</div>
+          </div>
+          <div class="bg-gray-800/50 rounded-xl p-6">
+            <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-users text-gaming-primary mr-2"></i>Participants</h2>
+            <div class="flex items-center gap-3 mb-3">
+              <input id="p-search" type="text" placeholder="Search participants..." class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-gaming-primary text-sm"/>
+              <select id="p-page-size" class="px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            <div id="participants" class="space-y-2 text-sm"></div>
+            <div class="flex items-center justify-between mt-3 text-sm" id="p-pager">
+              <button id="p-prev" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50" disabled>Previous</button>
+              <span id="p-info" class="text-gray-400"></span>
+              <button id="p-next" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50" disabled>Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast-wrapper" class="fixed top-5 right-5 z-50 space-y-2"></div>
+
+  <script>
+    function showToast(msg,type='info',ms=3500){
+      const wrap=document.getElementById('toast-wrapper');
+      const el=document.createElement('div');
+      const colors={success:'bg-green-600/80',error:'bg-red-600/80',warning:'bg-yellow-600/80',info:'bg-blue-600/80'};
+      el.className=`${colors[type]||colors.info} px-4 py-2 rounded-lg shadow text-sm backdrop-blur`; el.textContent=msg; wrap.appendChild(el);
+      setTimeout(()=>{el.classList.add('opacity-0'); setTimeout(()=>el.remove(),400);},ms);
+    }
+    function logout(){ localStorage.removeItem('esports_user'); localStorage.removeItem('esports_user_type'); window.location.href='/'; }
+    function goBack(){ history.length>1?history.back():window.location.href='/tournaments.html'; }
+
+    let currentUser=null, userType=null, tournament=null; const params=new URLSearchParams(location.search); const tid=params.get('id');
+    if(!tid){ showToast('Missing tournament id','error'); }
+
+    function loadSession(){
+      const u=localStorage.getItem('esports_user'); const t=localStorage.getItem('esports_user_type');
+      if(u&&t){ currentUser=JSON.parse(u); userType=t; }
+    }
+
+    async function fetchTournament(){
+      const r=await fetch(`/tables/tournaments/${tid}`); const j=await r.json(); if(!j.success){ throw new Error('Tournament not found'); }
+      tournament=j.data; return tournament;
+    }
+
+    async function fetchPlayerWallet(){
+      if(userType!=='player'||!currentUser) return 0; const r=await fetch(`/tables/players/${currentUser.id}`); const j=await r.json(); if(j.success) return j.data.walletBalance||0; return 0;
+    }
+
+    function renderTournament(){
+      document.getElementById('loading').classList.add('hidden'); document.getElementById('content').classList.remove('hidden');
+      document.getElementById('t-name').textContent=tournament.tournamentName;
+      document.getElementById('t-status').textContent=tournament.status.toUpperCase();
+      const statusColorMap={ 'registration-open':'bg-green-600','upcoming':'bg-blue-600','ongoing':'bg-purple-600','completed':'bg-gray-600','cancelled':'bg-red-700'};
+      document.getElementById('t-status').className=`text-xs inline-block px-3 py-1 rounded-full ${statusColorMap[tournament.status]||'bg-gray-600'}`;
+      document.getElementById('t-desc').textContent=tournament.description||'No description provided.';
+      const details=document.getElementById('t-details');
+      const rows=[
+        ['Game', tournament.game],
+        ['Mode', tournament.mode.toUpperCase()],
+        ['Organizer', tournament.organizerName],
+        ['Prize Pool', '₹'+Number(tournament.prizePool).toLocaleString()],
+        ['Entry Fee', tournament.hasEntryFee? '₹'+Number(tournament.entryFee).toLocaleString() : 'FREE'],
+        ['Start Date', new Date(tournament.startDate).toLocaleString()],
+        ['Reg Deadline', new Date(tournament.registrationDeadline).toLocaleString()],
+        ['Participants', `${tournament.currentParticipants}/${tournament.maxTeams}`]
+      ];
+      details.innerHTML=rows.map(([k,v])=>`<div class='bg-gray-700/40 rounded-lg p-3 flex justify-between'><span class='text-gray-400'>${k}</span><span class='font-semibold'>${v}</span></div>`).join('');
+      renderParticipants();
+      setupJoinBlock();
+      setupOrganizerActions();
+    }
+
+    // Participants search + paging state
+    let pFilter=''; let pPage=1; let pPageSize=10;
+    function getFilteredParticipants(){
+      const arr = Array.isArray(tournament.participants)? tournament.participants : [];
+      if(!pFilter) return arr;
+      const q=pFilter.toLowerCase();
+      return arr.filter(p=> (p.playerName||'').toLowerCase().includes(q) || (p.teamName||'').toLowerCase().includes(q));
+    }
+    function renderParticipants(){
+      const box=document.getElementById('participants');
+      const prev=document.getElementById('p-prev');
+      const next=document.getElementById('p-next');
+      const info=document.getElementById('p-info');
+      const all=getFilteredParticipants();
+      if(all.length===0){ box.innerHTML='<p class="text-gray-400">No participants found.</p>'; prev.disabled=true; next.disabled=true; info.textContent='0 / 0'; return; }
+      const total=all.length; const pages=Math.max(1, Math.ceil(total / pPageSize));
+      pPage = Math.min(pages, Math.max(1, pPage));
+      const start=(pPage-1)*pPageSize; const end=Math.min(total, start+pPageSize);
+      const slice=all.slice(start,end);
+      box.innerHTML=slice.map(p=>`<div class='flex justify-between items-center bg-gray-700/40 px-3 py-2 rounded'>
+        <span>${p.playerName}</span>
+        <span class='text-xs text-gray-400'>${new Date(p.registeredAt).toLocaleDateString()}</span>
+      </div>`).join('');
+      prev.disabled = pPage<=1; next.disabled = pPage>=pages;
+      info.textContent = `Showing ${start+1}-${end} of ${total}`;
+    }
+
+    async function setupJoinBlock(){
+      const wallet=await fetchPlayerWallet();
+      const fee=tournament.hasEntryFee?Number(tournament.entryFee):0;
+      document.getElementById('t-fee').textContent= fee>0? '₹'+fee.toLocaleString() : 'FREE';
+      document.getElementById('p-wallet').textContent='₹'+Number(wallet).toLocaleString();
+      document.getElementById('t-slots').textContent=`${tournament.currentParticipants}/${tournament.maxTeams}`;
+      const joinBtn=document.getElementById('join-btn');
+      const joinMsg=document.getElementById('join-msg');
+      const alreadyBlock=document.getElementById('already-msg');
+      const already=tournament.participants.some(p=>p.playerId=== (currentUser&&currentUser.id));
+      if(already){ alreadyBlock.classList.remove('hidden'); document.getElementById('join-block').classList.add('hidden'); return; }
+      const now=Date.now(); const startMs=new Date(tournament.startDate).getTime(); const TWO_HOURS=2*60*60*1000;
+      const expired= now - startMs > TWO_HOURS;
+      if(tournament.status!=='registration-open'){ joinBtn.disabled=true; joinMsg.textContent='Registration closed.'; return; }
+      if(expired){ joinBtn.disabled=true; joinMsg.textContent='Tournament is past the join window.'; return; }
+      if(tournament.currentParticipants >= tournament.maxTeams){ joinBtn.disabled=true; joinMsg.textContent='Tournament is full.'; return; }
+      if(fee>0 && wallet < fee){ joinBtn.disabled=true; joinMsg.textContent=`Insufficient funds (Need ₹${fee.toLocaleString()})`; return; }
+      joinBtn.onclick=()=>attemptJoin(fee);
+    }
+
+    async function attemptJoin(fee){
+      if(userType!=='player'||!currentUser){ showToast('Login as player first','error'); return; }
+      if(!confirm('Confirm join? '+(fee>0?`Entry fee ₹${fee.toLocaleString()} will be deducted.`:'Free entry.')) ) return;
+      try{
+        const payload={ playerId: currentUser.id, playerName: (currentUser.firstName? (currentUser.firstName+' '+(currentUser.lastName||'')) : (currentUser.name||'Player')).trim() };
+        const res= await fetch(`/tables/tournaments/${tournament.id}/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const json= await res.json();
+        if(!res.ok||!json.success) throw new Error(json.message||'Join failed');
+        showToast('Joined successfully! Redirecting...','success');
+        // Update local view immediately
+        tournament=json.data; // updated tournament
+        renderTournament();
+        // Auto-redirect to tournaments after short delay
+        setTimeout(()=>{ window.location.href='/tournaments.html'; }, 2000);
+      }catch(e){ showToast(e.message||'Error joining','error'); }
+    }
+
+    function setupOrganizerActions(){
+      if(userType!=='organizer'||!currentUser) return;
+      if(tournament.organizerId !== currentUser.id) return;
+      const block=document.getElementById('organizer-actions'); block.style.display='block';
+      const releaseBtn=document.getElementById('release-btn');
+      const note=document.getElementById('release-note');
+      if(tournament.status==='completed' && (tournament.prizeLocked||0)>0 && !tournament.prizeReleasedAt){
+        releaseBtn.disabled=false;
+        releaseBtn.onclick=async()=>{
+          if(!confirm('Release locked prize back to wallet?')) return;
+          try{
+            const r=await fetch(`/tables/tournaments/${tournament.id}/release-prize`, { method:'POST' });
+            const j=await r.json(); if(!j.success) throw new Error(j.message||'Release failed');
+            showToast('Prize released','success');
+            // refetch tournament
+            const rt=await fetchTournament(); tournament=rt; renderTournament();
+          }catch(e){ showToast(e.message||'Release error','error'); }
+        };
+      } else {
+        releaseBtn.disabled=true; note.textContent='Prize release becomes available only after completion and if prize is still locked.';
+      }
+    }
+
+    async function init(){
+      loadSession();
+      if(!tournament){ try{ await fetchTournament(); renderTournament(); }catch(e){ showToast(e.message,'error'); } }
+      // Hook search and pagination controls
+      const search = document.getElementById('p-search');
+      const size = document.getElementById('p-page-size');
+      const prev = document.getElementById('p-prev');
+      const next = document.getElementById('p-next');
+      if(search){ search.addEventListener('input', ()=>{ pFilter=search.value; pPage=1; renderParticipants(); }); }
+      if(size){ size.addEventListener('change', ()=>{ pPageSize=parseInt(size.value,10)||10; pPage=1; renderParticipants(); }); }
+      if(prev){ prev.addEventListener('click', ()=>{ if(pPage>1){ pPage--; renderParticipants(); } }); }
+      if(next){ next.addEventListener('click', ()=>{ pPage++; renderParticipants(); }); }
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -77,7 +77,7 @@
         function checkAuth() {
             if (!getSession()) {
                 showToast('Please login to view tournaments','warning');
-                window.location.href = '/player-login.html';
+                window.location.href = '/';
                 return false;
             }
             return true;
@@ -159,7 +159,7 @@
                                     <div class="flex justify-between"><span class="text-gray-400">Registration Deadline:</span><span class="text-white">${new Date(t.registrationDeadline).toLocaleDateString()}</span></div>
                                     <div class="flex justify-between"><span class="text-gray-400">Start Date:</span><span class="text-white">${new Date(t.startDate).toLocaleDateString()}</span></div>
                                 </div>
-                                <button onclick="viewTournament('${t.id}')" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">View Details & Register</button>
+                                <button onclick="openJoin('${t.id}')" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">View Details & Register</button>
                             </div>
                         </div>
                     `).join('');
@@ -173,15 +173,40 @@
             }
         }
 
+        function openJoin(id){ window.location.href = `/join-tournament.html?id=${encodeURIComponent(id)}`; }
+
         async function viewTournament(id) {
             // Simple register flow: confirm and register if player
             if (userType === 'player') {
-                if (!confirm('Proceed to register for this tournament? Entry fee (if any) will be deducted.')) return;
                 try{
-                    // fetch tournament details to get entryFee
+                    // fetch tournament details to get entryFee and status
                     const details = await fetch(`/tables/tournaments/${id}`).then(r=>r.json());
                     if (!details.success) throw new Error('Failed to fetch tournament');
                     const t = details.data;
+
+                    // Only allow registration for open tournaments (server enforces too)
+                    if (t.status !== 'registration-open') {
+                        showToast('Registration is closed for this tournament','warning');
+                        return;
+                    }
+
+                    // If paid, pre-check player wallet before asking for confirmation
+                    if (t.hasEntryFee && (t.entryFee||0) > 0) {
+                        const playerRes = await fetch(`/tables/players/${currentUser.id}`);
+                        const playerJson = await playerRes.json();
+                        if (!playerJson.success) throw new Error('Could not verify wallet');
+                        const balance = Number(playerJson.data.walletBalance||0);
+                        if (balance < Number(t.entryFee)) {
+                            showToast(`Insufficient funds. Need ₹${Number(t.entryFee).toLocaleString()}, you have ₹${balance.toLocaleString()}`,'error');
+                            if (confirm('Add funds now? You will be redirected to your dashboard.')) {
+                                window.location.href = '/player-dashboard.html';
+                            }
+                            return;
+                        }
+                    }
+
+                    if (!confirm('Proceed to register? Entry fee (if any) will be deducted.')) return;
+
                     const payload = { playerId: currentUser.id, playerName: (currentUser.firstName? (currentUser.firstName+" "+(currentUser.lastName||'')) : (currentUser.name||'Player')).trim() };
                     const res = await fetch(`/tables/tournaments/${id}/register`, {
                         method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)

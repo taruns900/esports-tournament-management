@@ -316,7 +316,7 @@ router.post('/:id/register', async (req, res) => {
             });
         }
 
-        // If entry fee is required, deduct from player wallet and credit organizer
+        // If entry fee is required, process financial operations with simple rollback safety
         if (tournament.hasEntryFee && (tournament.entryFee || 0) > 0) {
             const player = await Player.findOne({ id: playerId });
             if (!player) {
@@ -326,38 +326,54 @@ router.post('/:id/register', async (req, res) => {
             if ((player.walletBalance || 0) < fee) {
                 return res.status(400).json({ success: false, message: 'Insufficient player wallet balance to pay entry fee' });
             }
-            player.walletBalance -= fee;
-            await player.save();
 
-            await Transaction.create({
-                id: genId(),
-                userId: player.id,
-                userType: 'player',
-                type: 'deduct',
-                amount: fee,
-                reference: `entry_fee_${tournament.id}`,
-                meta: { tournamentId: tournament.id }
-            });
-
-            // Credit the organizer with the entry fee
-            const organizer = await Organizer.findOne({ id: tournament.organizerId });
-            if (organizer) {
-                organizer.walletBalance = (organizer.walletBalance || 0) + fee;
-                await organizer.save();
+            let playerDeducted = false;
+            try {
+                // Deduct from player
+                player.walletBalance -= fee;
+                await player.save();
+                playerDeducted = true;
 
                 await Transaction.create({
                     id: genId(),
-                    userId: organizer.id,
-                    userType: 'organizer',
-                    type: 'fee-credit',
+                    userId: player.id,
+                    userType: 'player',
+                    type: 'deduct',
                     amount: fee,
-                    reference: `entry_fee_credit_${tournament.id}`,
-                    meta: { tournamentId: tournament.id, fromPlayerId: player.id }
+                    reference: `entry_fee_${tournament.id}`,
+                    meta: { tournamentId: tournament.id }
                 });
-            }
 
-            // Track total collected entry fees on the tournament
-            tournament.entryFeeCollected = (tournament.entryFeeCollected || 0) + fee;
+                // Credit the organizer
+                const organizer = await Organizer.findOne({ id: tournament.organizerId });
+                if (organizer) {
+                    organizer.walletBalance = (organizer.walletBalance || 0) + fee;
+                    await organizer.save();
+
+                    await Transaction.create({
+                        id: genId(),
+                        userId: organizer.id,
+                        userType: 'organizer',
+                        type: 'fee-credit',
+                        amount: fee,
+                        reference: `entry_fee_credit_${tournament.id}`,
+                        meta: { tournamentId: tournament.id, fromPlayerId: player.id }
+                    });
+                }
+
+                // Track total collected entry fees on the tournament
+                tournament.entryFeeCollected = (tournament.entryFeeCollected || 0) + fee;
+            } catch (feeErr) {
+                console.error('💥 Entry fee processing error, attempting rollback:', feeErr);
+                // Rollback player deduction if it was applied
+                if (playerDeducted) {
+                    player.walletBalance += (parseInt(tournament.entryFee, 10) || 0);
+                    await player.save();
+                }
+                // Remove player deduction transaction if it exists
+                await Transaction.deleteOne({ userId: player.id, reference: `entry_fee_${tournament.id}` });
+                return res.status(500).json({ success: false, message: 'Failed processing entry fee. Please try again.', error: feeErr.message });
+            }
         }
 
         // Add participant

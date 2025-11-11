@@ -396,7 +396,8 @@
 
         // View tournament details
         function viewTournamentDetails(tournamentId) {
-            showToast('Tournament details page coming soon!','info');
+            //showToast('Tournament details page coming soon!','info');
+            window.location.href = `/join-tournament.html?id=${encodeURIComponent(tournamentId)}`;
         }
 
         // Logout

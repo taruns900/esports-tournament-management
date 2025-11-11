@@ -340,6 +340,16 @@ async function loadTournaments() {
         console.log('🎯 Container element:', tournamentsContainer);
         
         if (data.success && data.data.length > 0) {
+            // Determine current player id (if logged in as player)
+            let currentPlayerId = null;
+            try {
+                const ut = localStorage.getItem('esports_user_type');
+                const u = localStorage.getItem('esports_user');
+                if (ut === 'player' && u) {
+                    const parsed = JSON.parse(u);
+                    currentPlayerId = parsed && parsed.id ? parsed.id : null;
+                }
+            } catch(_) {}
             // Filter out tournaments that started more than 2 hours ago
             const now = Date.now();
             const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -361,7 +371,13 @@ async function loadTournaments() {
                 return;
             }
             console.log('✅ Rendering', data.data.length, 'tournaments...');
-            tournamentsContainer.innerHTML = fresh.map(tournament => `
+            tournamentsContainer.innerHTML = fresh.map(tournament => {
+                const alreadyJoined = !!(currentPlayerId && Array.isArray(tournament.participants) && tournament.participants.some(p => p.playerId === currentPlayerId));
+                const btnLabel = alreadyJoined ? 'View Details' : 'View Details & Register';
+                const btnAction = alreadyJoined 
+                    ? `window.location.href = '/tournament.html?id=${encodeURIComponent(tournament.id)}'`
+                    : `viewTournamentDetails('${tournament.id}')`;
+                return `
                 <div class="bg-gray-800/50 rounded-xl overflow-hidden hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105">
                     <div class="bg-gradient-to-r from-gaming-primary to-gaming-secondary p-4">
                         <div class="flex justify-between items-start">
@@ -409,12 +425,12 @@ async function loadTournaments() {
                             </div>
                         </div>
                         
-                        <button onclick="viewTournamentDetails('${tournament.id}')" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
-                            View Details & Register
+                        <button onclick="${btnAction}" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
+                            ${btnLabel}
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `;}).join('');
             console.log('✅ Tournaments rendered successfully after time filter!');
             console.log('📝 Container HTML length:', tournamentsContainer.innerHTML.length);
         } else {
@@ -442,6 +458,20 @@ async function loadTournaments() {
 
 // View tournament details
 function viewTournamentDetails(tournamentId) {
-    showNotification('Tournament details page coming soon!', 'info');
-    console.log('Viewing tournament:', tournamentId);
+    try {
+        const userType = localStorage.getItem('esports_user_type');
+        if (!userType) {
+            showNotification('Please login as a player to join tournaments', 'warning');
+            return;
+        }
+        if (userType !== 'player') {
+            showNotification('Switch to a player account to register', 'warning');
+            return;
+        }
+        // Navigate to the lightweight join page
+        window.location.href = `/join-tournament.html?id=${encodeURIComponent(tournamentId)}`;
+    } catch (e) {
+        console.error('viewTournamentDetails error:', e);
+        showNotification('Unable to open tournament page', 'error');
+    }
 }

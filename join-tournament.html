@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join Tournament</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white min-h-screen">
+  <main class="max-w-xl mx-auto p-6">
+    <div class="mt-8 bg-gray-800/60 rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-bold">Join Tournament</h1>
+        <button onclick="goBack()" class="text-sm px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded"><i class="fas fa-arrow-left mr-1"></i>Back</button>
+      </div>
+      <div id="guard" class="hidden text-red-400 text-sm mb-3"></div>
+      <div id="summary" class="space-y-2 text-sm mb-4"></div>
+      <div class="space-y-3">
+        <button id="join-btn" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors disabled:opacity-50">Join Now</button>
+        <button id="details-btn" class="w-full bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-semibold transition-colors hidden">View Tournament Details</button>
+        <p id="note" class="text-xs text-gray-400"></p>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="fixed top-5 right-5 z-50 hidden px-4 py-2 rounded bg-green-600/80 shadow"></div>
+
+  <script>
+    const params = new URLSearchParams(location.search); const tid = params.get('id');
+    let currentUser=null, userType=null, t=null, wallet=0;
+    function toast(msg, type='success'){ const el=document.getElementById('toast'); el.textContent=msg; el.className=`fixed top-5 right-5 z-50 px-4 py-2 rounded shadow ${type==='error'?'bg-red-600/80':'bg-green-600/80'}`; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 2500); }
+    function goBack(){ history.length>1?history.back():location.href='/tournaments.html'; }
+    function loadSession(){ const u=localStorage.getItem('esports_user'); const t=localStorage.getItem('esports_user_type'); if(u&&t){ currentUser=JSON.parse(u); userType=t; } }
+    function guard(){
+      const g=document.getElementById('guard'); const btn=document.getElementById('join-btn');
+      if(!currentUser || userType!=='player'){ g.textContent='This page is for players only. Please login as a player.'; g.classList.remove('hidden'); btn.disabled=true; return false; }
+      return true;
+    }
+    async function fetchTournament(){ const r=await fetch(`/tables/tournaments/${tid}`); const j=await r.json(); if(!j.success) throw new Error('Tournament not found'); t=j.data; }
+    async function fetchWallet(){ const r=await fetch(`/tables/players/${currentUser.id}`); const j=await r.json(); if(j.success) wallet=j.data.walletBalance||0; }
+    function render(){
+      const sum=document.getElementById('summary'); const btn=document.getElementById('join-btn'); const detailsBtn=document.getElementById('details-btn'); const note=document.getElementById('note');
+      const fee = t.hasEntryFee? Number(t.entryFee):0;
+      const status = t.status;
+      const slots = `${t.currentParticipants}/${t.maxTeams}`;
+      const alreadyJoined = Array.isArray(t.participants) && currentUser && t.participants.some(p=>p.playerId===currentUser.id);
+      const canJoin = !alreadyJoined && status==='registration-open' && t.currentParticipants < t.maxTeams && withinWindow(t.startDate) && (!fee || wallet>=fee);
+      sum.innerHTML = `
+        <div class='flex items-center justify-between'><span class='text-gray-400'>Name</span><span class='font-semibold'>${t.tournamentName}</span></div>
+        <div class='flex items-center justify-between'><span class='text-gray-400'>Game</span><span class='font-semibold capitalize'>${t.game}</span></div>
+        <div class='flex items-center justify-between'><span class='text-gray-400'>Mode</span><span class='font-semibold'>${t.mode.toUpperCase()}</span></div>
+        <div class='flex items-center justify-between'><span class='text-gray-400'>Prize Pool</span><span class='font-semibold text-yellow-400'>₹${Number(t.prizePool).toLocaleString()}</span></div>
+        <div class='flex items-center justify-between'><span class='text-gray-400'>Entry Fee</span><span class='font-semibold'>${fee? '₹'+fee.toLocaleString():'FREE'}</span></div>
+        <div class='flex items-center justify-between'><span class='text-gray-400'>Your Wallet</span><span class='font-semibold'>₹${Number(wallet).toLocaleString()}</span></div>
+        <div class='flex items-center justify-between'><span class='text-gray-400'>Slots</span><span class='font-semibold'>${slots}</span></div>
+      `;
+      // Toggle buttons
+      btn.classList.toggle('hidden', alreadyJoined);
+      detailsBtn.classList.toggle('hidden', !alreadyJoined);
+      btn.disabled = !canJoin;
+      
+      if(alreadyJoined) note.textContent='You have already joined this tournament. You can view details below.';
+      else if(!withinWindow(t.startDate)) note.textContent='Tournament join window has passed.';
+      else if(status!=='registration-open') note.textContent='Registration is closed.';
+      else if(t.currentParticipants >= t.maxTeams) note.textContent='Tournament is full.';
+      else if(fee>0 && wallet<fee) note.textContent=`Insufficient funds. Need ₹${fee.toLocaleString()}`;
+      else note.textContent='';
+      btn.onclick = attemptJoin;
+      detailsBtn.onclick = ()=>{ location.href = `/tournament.html?id=${encodeURIComponent(t.id)}`; };
+    }
+    function withinWindow(start){ const TWO=2*60*60*1000; const now=Date.now(); const ms=new Date(start).getTime(); return now - ms < TWO; }
+    async function attemptJoin(){
+      const fee = t.hasEntryFee? Number(t.entryFee):0;
+      if(fee>0 && wallet<fee){ toast('Insufficient funds','error'); return; }
+      if(!confirm('Confirm join? '+(fee?`Entry fee ₹${fee.toLocaleString()} will be deducted.`:'Free entry.'))) return;
+      try{
+        const payload={ playerId: currentUser.id, playerName: (currentUser.firstName? (currentUser.firstName+' '+(currentUser.lastName||'')):(currentUser.name||'Player')).trim() };
+        const r=await fetch(`/tables/tournaments/${t.id}/register`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+        const j=await r.json();
+        if(!r.ok||!j.success){
+          // Show detailed error information if available
+          toast((j.message||'Registration failed') + (j.error? ' ('+j.error+')':''),'error');
+          console.error('🔴 Registration failed response:', j);
+          return;
+        }
+        // Success: update slots locally and show explicit message from server
+        t = j.data; // updated tournament includes new participants count
+        render();
+        toast(j.message || 'Joined tournament successfully','success');
+        setTimeout(()=>{ location.href='/player-dashboard.html'; }, 1600);
+      }catch(e){ toast(e.message||'Error','error'); }
+    }
+    (async function init(){
+      loadSession(); if(!guard()) return; if(!tid){ toast('Missing id','error'); return; }
+      try{ await fetchTournament(); await fetchWallet(); render(); }catch(e){ toast(e.message||'Error','error'); }
+    })();
+  </script>
+</body>
+</html>

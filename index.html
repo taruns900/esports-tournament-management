@@ -42,8 +42,8 @@
                 </div>
 
                 <div class="hidden md:flex items-center space-x-8">
-                    <button onclick="showComingSoon()"
-                        class="nav-btn hover:text-gaming-accent transition-colors opacity-60 cursor-not-allowed">
+                    <button onclick="window.location.href='/tournaments.html'"
+                        class="nav-btn hover:text-gaming-accent transition-colors">
                         <i class="fas fa-gamepad mr-2"></i>Tournaments
                     </button>
                     <button onclick="showComingSoon()"
@@ -166,6 +166,14 @@
                             <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
                             <p>Loading tournaments...</p>
                         </div>
+                    </div>
+                    <!-- Featured Tournament (dynamic) -->
+                    <div id="featured-tournament" class="mt-12 hidden bg-gray-800/50 rounded-xl p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold flex items-center"><i class="fas fa-star text-yellow-400 mr-2"></i>Featured Tournament</h3>
+                            <button id="featured-view-btn" class="bg-gaming-primary hover:bg-gaming-secondary px-4 py-2 rounded-lg text-sm font-semibold">View & Join</button>
+                        </div>
+                        <div id="featured-content" class="text-sm text-gray-300"></div>
                     </div>
                     <!-- Organizer Wallet Widget -->
                     <div id="organizer-wallet" class="mt-16 hidden">
@@ -506,9 +514,11 @@
                 // Redirect to tournaments page
                 window.location.href = '/tournaments.html';
             } else {
-                // Not logged in - redirect to login
-                alert('Please login to browse tournaments');
-                window.location.href = '/player-login.html';
+                // Not logged in - redirect to home where login sections exist
+                if (typeof showNotification === 'function') {
+                    showNotification('Please login to browse tournaments', 'warning');
+                }
+                window.location.href = '/';
             }
         }
 
@@ -594,12 +604,67 @@
                     loadOrganizerTransactions();
                 }
             }
+            // Load featured tournament
+            loadFeaturedTournament();
         });
+
+        async function loadFeaturedTournament(){
+            try {
+                const res = await fetch('/tables/tournaments?status=registration-open&limit=10');
+                const json = await res.json();
+                if (!json.success || !json.data.length) return;
+                const now = Date.now();
+                const TWO_HOURS = 2*60*60*1000;
+                const candidates = json.data.filter(t => {
+                    if (!t.startDate) return true;
+                    const startMs = new Date(t.startDate).getTime();
+                    return now - startMs < TWO_HOURS;
+                });
+                if (!candidates.length) return;
+                // Pick the most recently created tournament
+                candidates.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+                const ft = candidates[0];
+                const box = document.getElementById('featured-tournament');
+                const content = document.getElementById('featured-content');
+                const btn = document.getElementById('featured-view-btn');
+                content.innerHTML = `
+                    <div class='grid md:grid-cols-3 gap-4'>
+                        <div><span class='text-gray-400'>Name:</span> <span class='font-semibold'>${ft.tournamentName}</span></div>
+                        <div><span class='text-gray-400'>Game:</span> <span class='font-semibold capitalize'>${ft.game}</span></div>
+                        <div><span class='text-gray-400'>Mode:</span> <span class='font-semibold'>${ft.mode.toUpperCase()}</span></div>
+                        <div><span class='text-gray-400'>Prize Pool:</span> <span class='font-semibold text-yellow-400'>₹${ft.prizePool.toLocaleString()}</span></div>
+                        <div><span class='text-gray-400'>Entry Fee:</span> <span class='font-semibold'>${ft.hasEntryFee? '₹'+ft.entryFee : 'FREE'}</span></div>
+                        <div><span class='text-gray-400'>Slots:</span> <span class='font-semibold'>${ft.currentParticipants}/${ft.maxTeams}</span></div>
+                    </div>`;
+                btn.onclick = () => { window.location.href = `/join-tournament.html?id=${encodeURIComponent(ft.id)}`; };
+                box.classList.remove('hidden');
+            } catch(e){ console.error('Featured tournament load error', e); }
+        }
     </script>
 
-    <script src="js/app.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/utilities.js"></script>
+        <script src="js/app.js"></script>
+        <script src="js/auth.js"></script>
+        <script src="js/utilities.js"></script>
+        <script>
+            // Ensure cards on the home page open the short join page for players
+            window.viewTournamentDetails = function(tournamentId){
+                try{
+                    const userType = localStorage.getItem('esports_user_type');
+                    if (userType !== 'player') {
+                        if (typeof showNotification === 'function') {
+                            showNotification('Please login as a player to join tournaments', 'warning');
+                        }
+                        return;
+                    }
+                    window.location.href = '/join-tournament.html?id=' + encodeURIComponent(tournamentId);
+                } catch(e){
+                    console.error('viewTournamentDetails override error:', e);
+                    if (typeof showNotification === 'function') {
+                        showNotification('Unable to open tournament page', 'error');
+                    }
+                }
+            };
+        </script>
 </body>
 
 </html>
