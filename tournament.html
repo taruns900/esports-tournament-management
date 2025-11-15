@@ -45,6 +45,26 @@
             <button id="release-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm disabled:opacity-50" disabled>Release Locked Prize</button>
             <p id="release-note" class="text-xs text-gray-400 mt-3"></p>
           </div>
+          <div id="declare-form" class="hidden bg-gray-800/50 rounded-xl p-6">
+            <h3 class="text-lg font-semibold mb-4">Declare Tournament Result</h3>
+            <div id="winners-list"></div>
+            <button onclick="addWinner()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm mr-2">Add Winner</button>
+            <button onclick="submitResult()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm">Submit Result</button>
+            <button onclick="hideDeclareForm()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm ml-2">Cancel</button>
+          </div>
+          <div class="bg-gray-800/50 rounded-xl p-6" id="declare-result-form" style="display:none">
+            <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-trophy text-gaming-primary mr-2"></i>Declare Result</h2>
+            <div class="mb-4">
+              <label for="winner-team" class="block text-sm font-medium text-gray-300 mb-1">Winner Team</label>
+              <input type="text" id="winner-team" class="block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-gaming-primary text-sm" placeholder="Enter the winning team name"/>
+            </div>
+            <div class="mb-4">
+              <label for="runnerup-team" class="block text-sm font-medium text-gray-300 mb-1">Runner-up Team</label>
+              <input type="text" id="runnerup-team" class="block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-gaming-primary text-sm" placeholder="Enter the runner-up team name"/>
+            </div>
+            <button id="submit-result-btn" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-2 rounded-lg font-semibold transition-colors disabled:opacity-50" disabled>Submit Result</button>
+            <p id="result-msg" class="text-xs mt-3 text-gray-400"></p>
+          </div>
         </div>
         <div class="space-y-6">
           <div class="bg-gray-800/50 rounded-xl p-6">
@@ -144,9 +164,12 @@
         ['Prize Pool', '₹'+Number(tournament.prizePool).toLocaleString()],
         ['Entry Fee', tournament.hasEntryFee? '₹'+Number(tournament.entryFee).toLocaleString() : 'FREE'],
         ['Start Date', new Date(tournament.startDate).toLocaleString()],
-  ['Reg Deadline', tournament.registrationDeadline ? `${new Date(tournament.registrationDeadline).toLocaleString()}${regClosed?' (Passed)':''}` : '—'],
+        ['Reg Deadline', `${new Date(tournament.registrationDeadline).toLocaleString()}${regClosed?' (Passed)':''}`],
         ['Participants', `${tournament.currentParticipants}/${tournament.maxTeams}`]
       ];
+      if(tournament.status === 'completed' && tournament.winners && tournament.winners.length){
+        rows.push(['Winners', tournament.winners.map(w => `${w.position}. ${w.playerName} - ₹${w.prize.toLocaleString()}`).join('<br>')]);
+      }
       details.innerHTML=rows.map(([k,v])=>`<div class='bg-gray-700/40 rounded-lg p-3 flex justify-between'><span class='text-gray-400'>${k}</span><span class='font-semibold'>${v}</span></div>`).join('');
       setupLiveBlock();
       renderParticipants();
@@ -282,6 +305,76 @@
         };
       } else {
         releaseBtn.disabled=true; note.textContent='Prize release becomes available only after completion and if prize is still locked.';
+      }
+      // Add declare result button if eligible
+      if(tournament.status !== 'completed'){
+        const startTime = new Date(tournament.startDate).getTime();
+        const twoHoursAfter = startTime + (2 * 60 * 60 * 1000);
+        if(Date.now() > twoHoursAfter){
+          const declareBtn = document.createElement('button');
+          declareBtn.textContent = 'Declare Result';
+          declareBtn.className = 'bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm ml-2';
+          declareBtn.onclick = () => showDeclareForm();
+          block.appendChild(declareBtn);
+        }
+      }
+    }
+
+    let winners = [];
+
+    function showDeclareForm() {
+      document.getElementById('declare-form').classList.remove('hidden');
+      winners = [];
+      renderWinners();
+    }
+
+    function hideDeclareForm() {
+      document.getElementById('declare-form').classList.add('hidden');
+    }
+
+    function addWinner() {
+      winners.push({ position: winners.length + 1, playerId: '', playerName: '', teamName: '', prize: 0 });
+      renderWinners();
+    }
+
+    function renderWinners() {
+      const list = document.getElementById('winners-list');
+      list.innerHTML = winners.map((w, i) => `
+        <div class="flex gap-2 mb-2">
+          <input type="number" placeholder="Position" value="${w.position}" onchange="winners[${i}].position = parseInt(this.value || 0)" class="px-2 py-1 bg-gray-700 rounded text-sm w-20">
+          <input type="text" placeholder="Player ID" value="${w.playerId}" onchange="winners[${i}].playerId = this.value" class="px-2 py-1 bg-gray-700 rounded text-sm flex-1">
+          <input type="text" placeholder="Player Name" value="${w.playerName}" onchange="winners[${i}].playerName = this.value" class="px-2 py-1 bg-gray-700 rounded text-sm flex-1">
+          <input type="text" placeholder="Team Name" value="${w.teamName}" onchange="winners[${i}].teamName = this.value" class="px-2 py-1 bg-gray-700 rounded text-sm flex-1">
+          <input type="number" placeholder="Prize" value="${w.prize}" onchange="winners[${i}].prize = parseFloat(this.value || 0)" class="px-2 py-1 bg-gray-700 rounded text-sm w-24">
+          <button onclick="removeWinner(${i})" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-sm">X</button>
+        </div>
+      `).join('');
+    }
+
+    function removeWinner(i) {
+      winners.splice(i, 1);
+      renderWinners();
+    }
+
+    async function submitResult() {
+      if (!winners.length) return showToast('Add at least one winner', 'error');
+      const total = winners.reduce((s, w) => s + (w.prize || 0), 0);
+      if (total > tournament.prizePool) return showToast('Total prize exceeds prize pool', 'error');
+      
+      try {
+        const res = await fetch(`/tables/tournaments/${tournament.id}/declare-result`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizerId: currentUser.id, winners })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message);
+        showToast('Result declared and prizes distributed', 'success');
+        hideDeclareForm();
+        // Refresh page
+        setTimeout(() => location.reload(), 1000);
+      } catch (e) {
+        showToast(e.message, 'error');
       }
     }
 
