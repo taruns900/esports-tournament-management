@@ -324,55 +324,26 @@ async function loadStats() {
 }
 // Load and display tournaments
 async function loadTournaments() {
-    console.log('🔄 loadTournaments() called');
     try {
-    console.log('📡 Fetching top 3 active tournaments for home...');
-    // Show at most 3 cards on homepage. Use a small limit for the dashboard preview.
-    const response = await fetch('/tables/tournaments?limit=3&status=registration-open');
-        console.log('📥 Response received:', response.status, response.statusText);
-        
-        const data = await response.json();
-        console.log('📦 Data parsed:', data);
-        console.log('📊 Total tournaments found:', data.total);
-        console.log('🎮 Tournaments data:', data.data);
-        
-        const tournamentsContainer = document.getElementById('tournaments-list');
-        console.log('🎯 Container element:', tournamentsContainer);
-        
-        if (data.success && data.data.length > 0) {
-            // Determine current session info
-            let currentPlayerId = null;
-            let currentUserType = null;
-            try {
-                const ut = localStorage.getItem('esports_user_type');
-                const u = localStorage.getItem('esports_user');
-                currentUserType = ut || null;
-                if (ut === 'player' && u) {
-                    const parsed = JSON.parse(u);
-                    currentPlayerId = parsed && parsed.id ? parsed.id : null;
-                }
-            } catch(_) {}
-            // Filter out tournaments that started more than 2 hours ago
+        const response = await fetch('/tables/tournaments?status=registration-open&limit=1000');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            // Filter to recent tournaments (within 2 hours of start)
             const now = Date.now();
             const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-            const fresh = data.data.filter(t => {
-                if (!t.startDate) return true; // if startDate missing, keep
+            const fresh = result.data.filter(t => {
+                if (!t.startDate) return true;
                 const startMs = new Date(t.startDate).getTime();
-                return now - startMs < TWO_HOURS_MS; // keep if <2h old
+                return now - startMs < TWO_HOURS_MS;
             });
-            console.log(`⏱ Filtered tournaments (<=2h old): ${fresh.length}/${data.data.length}`);
-            
-            if (fresh.length === 0) {
-                tournamentsContainer.innerHTML = `
-                <div class="text-center col-span-full py-12 text-gray-400">
-                    <i class="fas fa-clock text-5xl mb-4 opacity-50"></i>
-                    <p class="text-xl">No current tournaments within the last 2 hours</p>
-                    <p class="text-sm mt-2">Check back soon or create a new one!</p>
-                </div>`;
-                console.log('⚠️ All tournaments are older than 2 hours.');
-                return;
-            }
-            console.log('✅ Rendering', data.data.length, 'tournaments...');
+
+            const tournamentsContainer = document.getElementById('tournaments-list');
+            if (!tournamentsContainer) return;
+
+            const currentUserType = localStorage.getItem('esports_user_type');
+            const currentPlayerId = currentUserType === 'player' ? (JSON.parse(localStorage.getItem('esports_user') || '{}')).id : null;
+
             tournamentsContainer.innerHTML = fresh.map(tournament => {
                 const loggedIn = !!currentUserType;
                 const isPlayer = currentUserType === 'player';
@@ -412,72 +383,30 @@ async function loadTournaments() {
                             ${regClosed ? `<span class='bg-red-600 text-white text-xs px-3 py-1 rounded-full font-semibold'>CLOSED</span>` : `<span class='bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold'>OPEN</span>`}
                         </div>
                     </div>
-                    
                     <div class="p-6">
                         <div class="flex items-center gap-4 mb-4 text-sm">
-                            <span class="flex items-center gap-2">
-                                <i class="fas fa-gamepad text-gaming-accent"></i>
-                                <span class="capitalize">${tournament.game}</span>
-                            </span>
-                            <span class="flex items-center gap-2">
-                                <i class="fas fa-users text-gaming-primary"></i>
-                                <span>${tournament.mode.toUpperCase()}</span>
-                            </span>
+                            <span class="flex items-center gap-2"><i class="fas fa-gamepad text-gaming-accent"></i><span class="capitalize">${tournament.game}</span></span>
+                            <span class="flex items-center gap-2"><i class="fas fa-users text-gaming-primary"></i><span>${tournament.mode.toUpperCase()}</span></span>
                         </div>
-                        
                         <div class="space-y-2 mb-4 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Prize Pool:</span>
-                                <span class="text-yellow-400 font-bold">₹${tournament.prizePool.toLocaleString()}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Players:</span>
-                                <span class="text-white">${tournament.currentParticipants}/${tournament.maxTeams}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Entry Fee:</span>
-                                <span class="text-white">${tournament.hasEntryFee ? '₹' + tournament.entryFee : 'FREE'}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                    <span class="text-gray-400">Registration Deadline:</span>
-                                    <span class="text-white">${tournament.registrationDeadline ? `${new Date(tournament.registrationDeadline).toLocaleDateString()}${regClosed? ' (Passed)':''}` : '—'}</span>
-                                </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Start Date:</span>
-                                <span class="text-white">${new Date(tournament.startDate).toLocaleDateString()}</span>
-                            </div>
+                            <div class="flex justify-between"><span class="text-gray-400">Prize Pool:</span><span class="text-yellow-400 font-bold">₹${tournament.prizePool.toLocaleString()}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Players:</span><span class="text-white">${tournament.currentParticipants}/${tournament.maxTeams}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Entry Fee:</span><span class="text-white">${tournament.hasEntryFee ? '₹' + tournament.entryFee : 'FREE'}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Registration Deadline:</span><span class="text-white">${tournament.registrationDeadline ? `${new Date(tournament.registrationDeadline).toLocaleDateString()}${regClosed?' (Passed)':''}` : '—'}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Start Date:</span><span class="text-white">${new Date(tournament.startDate).toLocaleDateString()}</span></div>
                         </div>
-                        
-                        <button onclick="${btnAction}" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
-                            ${btnLabel}
-                        </button>
-                        ${regClosed ? `<button onclick=\"watchLive('${tournament.id}')\" class=\"mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fas fa-play-circle\"></i>Watch Live Match</button>` : ''}
-                        ${tournament.discordUrl ? `<button onclick="joinDiscord('${tournament.id}')" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class=\"fab fa-discord\"></i>Join Discord</button>` : ''}
+                        <button onclick="${btnAction}" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors"> ${btnLabel}</button>
+                        ${isLive ? `<button onclick="watchLive('${tournament.id}')" class="mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fas fa-play-circle"></i>Watch Live Match</button>` : ''}
+                        ${tournament.discordUrl ? `<button onclick="joinDiscord('${tournament.id}')" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fab fa-discord"></i>Join Discord</button>` : ''}
                     </div>
-                </div>
-            `;}).join('');
-            console.log('✅ Tournaments rendered successfully after time filter!');
-            console.log('📝 Container HTML length:', tournamentsContainer.innerHTML.length);
+                </div>`;
+            }).join('');
         } else {
-            console.log('⚠️ No tournaments found or invalid data');
-            tournamentsContainer.innerHTML = `
-                <div class="text-center col-span-full py-12 text-gray-400">
-                    <i class="fas fa-trophy text-5xl mb-4 opacity-50"></i>
-                    <p class="text-xl">No active tournaments yet</p>
-                    <p class="text-sm mt-2">Be the first to create one!</p>
-                </div>
-            `;
+            document.getElementById('tournaments-list').innerHTML = '<div class="text-center col-span-full py-12 text-gray-400"><i class="fas fa-trophy text-5xl mb-4 opacity-50"></i><p class="text-xl">No active tournaments yet</p><p class="text-sm mt-2">Check back soon!</p></div>';
         }
-        console.log('✅ loadTournaments() completed successfully');
     } catch (error) {
-        console.error('❌ Error loading tournaments:', error);
-        console.error('Error stack:', error.stack);
-        document.getElementById('tournaments-list').innerHTML = `
-            <div class="text-center col-span-full py-12 text-red-400">
-                <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
-                <p>Error loading tournaments</p>
-            </div>
-        `;
+        console.error('Error loading tournaments:', error);
+        document.getElementById('tournaments-list').innerHTML = '<div class="text-center col-span-full py-12 text-red-400">Error loading tournaments</div>';
     }
 }
 
