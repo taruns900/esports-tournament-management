@@ -77,6 +77,7 @@ async function seedData() {
       organizerName: organizer.name,
       participants: [],
       streamUrl: 'https://example.com/stream1',
+      discordUrl: 'https://discord.gg/example1',
       createdAt: now,
     });
     await tournament1.save();
@@ -101,6 +102,7 @@ async function seedData() {
       organizerName: organizer.name,
       participants: [],
       streamUrl: 'https://example.com/stream2',
+      discordUrl: 'https://discord.gg/example2',
       createdAt: now,
     });
     await tournament2.save();
@@ -125,6 +127,7 @@ async function seedData() {
       organizerName: organizer.name,
       participants: [],
       streamUrl: 'https://example.com/stream3',
+      discordUrl: 'https://discord.gg/example3',
       createdAt: now,
     });
     await tournament3.save();

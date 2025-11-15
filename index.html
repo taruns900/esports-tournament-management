@@ -664,6 +664,13 @@
                     }
                 }
             };
+            window.joinDiscord = function(id){
+                fetch(`/tables/tournaments/${id}`).then(r=>r.json()).then(j=>{
+                    if(!j.success){ if(typeof showNotification==='function') showNotification('Discord data not found','error'); return; }
+                    const t=j.data;
+                    if(t.discordUrl){ window.open(t.discordUrl,'_blank'); } else { if(typeof showNotification==='function') showNotification('Discord link not available','info'); }
+                }).catch(e=>{ console.error('joinDiscord error',e); if(typeof showNotification==='function') showNotification('Unable to open Discord','error'); });
+            };
         </script>
 </body>
 

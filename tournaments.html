@@ -168,6 +168,7 @@
                                         ? `<button onclick="window.location.href='/tournament.html?id=${t.id}'" class="w-full bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-semibold transition-colors">View Details</button>`
                                         : `<button onclick="openJoin('${t.id}')" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">View Details & Register</button>`}
                                     ${isLive ? `<button onclick="watchLive('${t.id}')" class="mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fas fa-play-circle"></i>Watch Live Match</button>` : ''}
+                                    ${t.discordUrl ? `<button onclick="joinDiscord('${t.id}')" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fab fa-discord"></i>Join Discord</button>` : ''}
                             </div>
                         </div>`;
                     }).join('');
@@ -188,6 +189,13 @@
                 const t=j.data;
                 if(t.streamUrl){ window.open(t.streamUrl,'_blank'); } else { showToast('Live stream not available','info'); }
             }).catch(e=>{ console.error('watchLive error',e); showToast('Unable to open live stream','error'); });
+        }
+        function joinDiscord(id){
+            fetch(`/tables/tournaments/${id}`).then(r=>r.json()).then(j=>{
+                if(!j.success){ showToast('Discord data not found','error'); return; }
+                const t=j.data;
+                if(t.discordUrl){ window.open(t.discordUrl,'_blank'); } else { showToast('Discord link not available','info'); }
+            }).catch(e=>{ console.error('joinDiscord error',e); showToast('Unable to open Discord','error'); });
         }
 
         async function viewTournament(id) {
