@@ -239,6 +239,42 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+// PUT update tournament links (stream/discord) - organizer-only before registration closes
+router.put('/:id/links', async (req, res) => {
+    try {
+        const { streamUrl, discordUrl, organizerId } = req.body || {};
+
+        const tournament = await Tournament.findOne({ id: req.params.id });
+        if (!tournament) {
+            return res.status(404).json({ success: false, message: 'Tournament not found' });
+        }
+
+        // Basic organizer check (lightweight since we don't have auth tokens)
+        if (!organizerId || organizerId !== tournament.organizerId) {
+            return res.status(403).json({ success: false, message: 'Only the tournament organizer can update links' });
+        }
+
+        // Only allow editing while registration is open and before deadline
+        const now = new Date();
+        const regDeadline = tournament.registrationDeadline ? new Date(tournament.registrationDeadline) : null;
+        const regClosed = regDeadline ? now > regDeadline : false;
+        if (tournament.status !== 'registration-open' || regClosed) {
+            return res.status(400).json({ success: false, message: 'Registration is closed; links cannot be edited' });
+        }
+
+        // Whitelist only the two link fields
+        if (typeof streamUrl !== 'undefined') tournament.streamUrl = streamUrl;
+        if (typeof discordUrl !== 'undefined') tournament.discordUrl = discordUrl;
+
+        await tournament.save();
+
+        res.json({ success: true, message: 'Links updated successfully', data: { streamUrl: tournament.streamUrl, discordUrl: tournament.discordUrl } });
+    } catch (error) {
+        console.error('Error updating links:', error);
+        res.status(400).json({ success: false, message: 'Error updating links', error: error.message });
+    }
+});
+
 // DELETE tournament
 router.delete('/:id', async (req, res) => {
     try {

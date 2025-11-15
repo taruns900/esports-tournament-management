@@ -348,10 +348,12 @@ async function loadTournaments() {
                 const loggedIn = !!currentUserType;
                 const isPlayer = currentUserType === 'player';
                 const alreadyJoined = !!(isPlayer && currentPlayerId && Array.isArray(tournament.participants) && tournament.participants.some(p => p.playerId === currentPlayerId));
-                const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
-                const isLive = Date.now() >= startMs; // started time reached
                 const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : null;
                 const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
+                const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
+                const endMs = tournament.endDate ? new Date(tournament.endDate).getTime() : (startMs + 2*60*60*1000);
+                const now = Date.now();
+                const liveWindow = regDeadlineMs ? (now >= regDeadlineMs && now <= endMs) : (now <= endMs);
                 let btnLabel;
                 let btnAction;
                 if (!loggedIn) {
@@ -396,8 +398,8 @@ async function loadTournaments() {
                             <div class="flex justify-between"><span class="text-gray-400">Start Date:</span><span class="text-white">${new Date(tournament.startDate).toLocaleDateString()}</span></div>
                         </div>
                         <button onclick="${btnAction}" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors"> ${btnLabel}</button>
-                        ${isLive ? `<button onclick="watchLive('${tournament.id}')" class="mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fas fa-play-circle"></i>Watch Live Match</button>` : ''}
-                        ${tournament.discordUrl ? `<button onclick="joinDiscord('${tournament.id}')" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fab fa-discord"></i>Join Discord</button>` : ''}
+                        ${(liveWindow && tournament.streamUrl) ? `<button onclick=\"watchLive('${tournament.id}')\" class=\"mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fas fa-play-circle\"></i>Watch Live Match</button>` : ''}
+                        ${(liveWindow && tournament.discordUrl) ? `<button onclick=\"joinDiscord('${tournament.id}')\" class=\"mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fab fa-discord\"></i>Join Discord</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -439,10 +441,29 @@ function watchLive(tournamentId){
                 if(!j.success){ showNotification('Live data not found','error'); return; }
                 const t=j.data;
                 const startMs = t.startDate ? new Date(t.startDate).getTime() : 0;
-                if(Date.now() < startMs){ showNotification('Match has not started yet','warning'); return; }
+                const regDeadlineMs = t.registrationDeadline ? new Date(t.registrationDeadline).getTime() : 0;
+                const endMs = t.endDate ? new Date(t.endDate).getTime() : (startMs + 2*60*60*1000);
+                const now = Date.now();
+                if(now < regDeadlineMs){ showNotification('Stream available after registration deadline','warning'); return; }
+                if(now > endMs){ showNotification('Match has ended','info'); return; }
                 if(t.streamUrl){ window.open(t.streamUrl,'_blank'); }
                 else { showNotification('Live stream not available','info'); }
             })
             .catch(e=>{ console.error('watchLive error',e); showNotification('Unable to open live stream','error'); });
     } catch(e){ console.error('watchLive fatal',e); }
+}
+
+// Open Discord invite in new tab when available
+function joinDiscord(tournamentId){
+    try {
+        fetch(`/tables/tournaments/${tournamentId}`)
+            .then(r=>r.json())
+            .then(j=>{
+                if(!j.success){ showNotification('Discord data not found','error'); return; }
+                const t=j.data;
+                if(t.discordUrl){ window.open(t.discordUrl,'_blank'); }
+                else { showNotification('Discord link not available','info'); }
+            })
+            .catch(e=>{ console.error('joinDiscord error',e); showNotification('Unable to open Discord','error'); });
+    } catch(e){ console.error('joinDiscord fatal',e); }
 }

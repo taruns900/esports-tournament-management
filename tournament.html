@@ -35,8 +35,9 @@
           <div class="bg-gray-800/50 rounded-xl p-6">
             <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-info-circle text-gaming-accent mr-2"></i>Details</h2>
             <div class="grid sm:grid-cols-2 gap-4 text-sm" id="t-details"></div>
-            <div id="live-block" class="mt-4">
+            <div id="live-block" class="mt-4 space-y-3">
               <button id="live-btn" class="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:cursor-not-allowed py-2 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm"><i class="fas fa-play-circle"></i><span>Watch Live Match</span></button>
+              <button id="discord-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 disabled:cursor-not-allowed py-2 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm"><i class="fab fa-discord"></i><span>Join Discord</span></button>
               <p id="live-note" class="text-xs text-gray-400 mt-2"></p>
             </div>
           </div>
@@ -148,28 +149,39 @@
         ['Participants', `${tournament.currentParticipants}/${tournament.maxTeams}`]
       ];
       details.innerHTML=rows.map(([k,v])=>`<div class='bg-gray-700/40 rounded-lg p-3 flex justify-between'><span class='text-gray-400'>${k}</span><span class='font-semibold'>${v}</span></div>`).join('');
-      setupLiveBlock();
+  setupLiveBlock();
       renderParticipants();
       setupJoinBlock();
       setupOrganizerActions();
+  setupOrganizerLinkEditor();
     }
     function setupLiveBlock(){
       const block=document.getElementById('live-block');
       const btn=document.getElementById('live-btn');
+      const discordBtn=document.getElementById('discord-btn');
       const note=document.getElementById('live-note');
       if(!block || !btn || !note) return;
-      const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
-      const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : 0;
+  const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
+  const endMs = tournament.endDate ? new Date(tournament.endDate).getTime() : (startMs + 2*60*60*1000);
+  const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : 0;
 
       function updateLiveState(){
         const now = Date.now();
-        const isLive = now > regDeadlineMs;
-        if (!isLive) {
+        if (now < regDeadlineMs) {
           // Show disabled button with deadline note
           btn.disabled = true;
+          discordBtn.disabled = true;
           const dt = new Date(regDeadlineMs);
           note.textContent = `Registration open until ${dt.toLocaleString()}. Live stream available after deadline.`;
           btn.onclick = null;
+          discordBtn.onclick = null;
+        } else if (now > endMs) {
+          // After match end - both disabled
+          btn.disabled = true;
+          discordBtn.disabled = true;
+          btn.onclick = null;
+          discordBtn.onclick = null;
+          note.textContent = 'Match has ended. Links are no longer active.';
         } else {
           // After deadline: enable button if stream URL available
           if (tournament.streamUrl) {
@@ -181,6 +193,15 @@
             btn.onclick = null;
             note.textContent = 'Registration closed, but stream link not provided.';
           }
+
+          // Discord button is public, enabled after deadline if link provided
+          if (tournament.discordUrl) {
+            discordBtn.disabled = false;
+            discordBtn.onclick = () => window.open(tournament.discordUrl, '_blank');
+          } else {
+            discordBtn.disabled = true;
+            discordBtn.onclick = null;
+          }
         }
       }
 
@@ -189,11 +210,60 @@
       // Check every 30s; keep it lightweight
       const iv = setInterval(() => {
         updateLiveState();
-        // Stop checking once live and button enabled (or no stream URL, still keep note)
-        if (Date.now() > regDeadlineMs) {
+        // Stop checking once we pass endMs
+        if (Date.now() > endMs) {
           clearInterval(iv);
         }
       }, 30000);
+    }
+
+    // Organizer-only inline link editor before registration closes
+    function setupOrganizerLinkEditor(){
+      if(userType!=='organizer'||!currentUser) return;
+      if(tournament.organizerId !== currentUser.id) return;
+      const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : 0;
+      const regClosed = Date.now() > regDeadlineMs;
+      if (regClosed || tournament.status !== 'registration-open') return; // not editable anymore
+
+      const container = document.createElement('div');
+      container.className = 'bg-gray-800/50 rounded-xl p-6';
+      container.innerHTML = `
+        <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-link text-gaming-accent mr-2"></i>Edit Links (until registration closes)</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">YouTube/Stream URL</label>
+            <input id="edit-stream" type="url" value="${tournament.streamUrl||''}" placeholder="https://youtube.com/..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-gaming-primary text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Discord Invite URL</label>
+            <input id="edit-discord" type="url" value="${tournament.discordUrl||''}" placeholder="https://discord.gg/..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-gaming-primary text-sm"/>
+          </div>
+          <div class="flex gap-3">
+            <button id="save-links" class="bg-gaming-primary hover:bg-gaming-secondary px-4 py-2 rounded-lg">Save Links</button>
+            <span id="save-note" class="text-xs text-gray-400"></span>
+          </div>
+        </div>
+      `;
+      const leftCol = document.querySelector('.md\:col-span-2 .space-y-6');
+      if (leftCol) leftCol.appendChild(container);
+
+      const saveBtn = container.querySelector('#save-links');
+      const streamEl = container.querySelector('#edit-stream');
+      const discordEl = container.querySelector('#edit-discord');
+      const saveNote = container.querySelector('#save-note');
+      saveBtn.addEventListener('click', async ()=>{
+        try{
+          saveBtn.disabled=true; saveBtn.textContent='Saving...'; saveNote.textContent='';
+          const payload={ organizerId: currentUser.id, streamUrl: streamEl.value.trim()||null, discordUrl: discordEl.value.trim()||null };
+          const r=await fetch(`/tables/tournaments/${tournament.id}/links`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          const j=await r.json(); if(!r.ok || !j.success) throw new Error(j.message||'Failed to update');
+          tournament.streamUrl=j.data.streamUrl; tournament.discordUrl=j.data.discordUrl;
+          showToast('Links updated','success');
+          // Re-evaluate live block state in case new links affect buttons
+          setupLiveBlock();
+        }catch(e){ showToast(e.message||'Error saving links','error'); }
+        finally{ saveBtn.disabled=false; saveBtn.textContent='Save Links'; }
+      });
     }
 
     // Participants search + paging state
