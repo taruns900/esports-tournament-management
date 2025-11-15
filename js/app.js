@@ -340,11 +340,13 @@ async function loadTournaments() {
         console.log('🎯 Container element:', tournamentsContainer);
         
         if (data.success && data.data.length > 0) {
-            // Determine current player id (if logged in as player)
+            // Determine current session info
             let currentPlayerId = null;
+            let currentUserType = null;
             try {
                 const ut = localStorage.getItem('esports_user_type');
                 const u = localStorage.getItem('esports_user');
+                currentUserType = ut || null;
                 if (ut === 'player' && u) {
                     const parsed = JSON.parse(u);
                     currentPlayerId = parsed && parsed.id ? parsed.id : null;
@@ -372,11 +374,34 @@ async function loadTournaments() {
             }
             console.log('✅ Rendering', data.data.length, 'tournaments...');
             tournamentsContainer.innerHTML = fresh.map(tournament => {
-                const alreadyJoined = !!(currentPlayerId && Array.isArray(tournament.participants) && tournament.participants.some(p => p.playerId === currentPlayerId));
-                const btnLabel = alreadyJoined ? 'View Details' : 'View Details & Register';
-                const btnAction = alreadyJoined 
-                    ? `window.location.href = '/tournament.html?id=${encodeURIComponent(tournament.id)}'`
-                    : `viewTournamentDetails('${tournament.id}')`;
+                const loggedIn = !!currentUserType;
+                const isPlayer = currentUserType === 'player';
+                const alreadyJoined = !!(isPlayer && currentPlayerId && Array.isArray(tournament.participants) && tournament.participants.some(p => p.playerId === currentPlayerId));
+                const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
+                const isLive = Date.now() >= startMs; // started time reached
+                const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : null;
+                const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
+                let btnLabel;
+                let btnAction;
+                if (!loggedIn) {
+                    // No session: show simple details
+                    btnLabel = 'View Details';
+                    btnAction = `window.location.href = '/tournament.html?id=${encodeURIComponent(tournament.id)}'`;
+                } else if (isPlayer) {
+                    if (regClosed) {
+                      btnLabel = 'View Details';
+                      btnAction = `window.location.href = '/tournament.html?id=${encodeURIComponent(tournament.id)}'`;
+                    } else {
+                      btnLabel = alreadyJoined ? 'View Details' : 'View Details & Register';
+                      btnAction = alreadyJoined
+                          ? `window.location.href = '/tournament.html?id=${encodeURIComponent(tournament.id)}'`
+                          : `viewTournamentDetails('${tournament.id}')`;
+                    }
+                } else {
+                    // Logged in but not a player (e.g., organizer)
+                    btnLabel = 'View Details';
+                    btnAction = `window.location.href = '/tournament.html?id=${encodeURIComponent(tournament.id)}'`;
+                }
                 return `
                 <div class="bg-gray-800/50 rounded-xl overflow-hidden hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105">
                     <div class="bg-gradient-to-r from-gaming-primary to-gaming-secondary p-4">
@@ -384,9 +409,7 @@ async function loadTournaments() {
                             <div>
                                 <h3 class="text-xl font-bold text-white mb-1">${tournament.tournamentName}</h3>
                             </div>
-                            <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                                OPEN
-                            </span>
+                            ${regClosed ? `<span class='bg-red-600 text-white text-xs px-3 py-1 rounded-full font-semibold'>CLOSED</span>` : `<span class='bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold'>OPEN</span>`}
                         </div>
                     </div>
                     
@@ -416,9 +439,9 @@ async function loadTournaments() {
                                 <span class="text-white">${tournament.hasEntryFee ? '₹' + tournament.entryFee : 'FREE'}</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Registration Deadline:</span>
-                                <span class="text-white">${new Date(tournament.registrationDeadline).toLocaleDateString()}</span>
-                            </div>
+                                    <span class="text-gray-400">Registration Deadline:</span>
+                                    <span class="text-white">${tournament.registrationDeadline ? `${new Date(tournament.registrationDeadline).toLocaleDateString()}${regClosed? ' (Passed)':''}` : '—'}</span>
+                                </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-400">Start Date:</span>
                                 <span class="text-white">${new Date(tournament.startDate).toLocaleDateString()}</span>
@@ -428,6 +451,7 @@ async function loadTournaments() {
                         <button onclick="${btnAction}" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
                             ${btnLabel}
                         </button>
+                        ${regClosed ? `<button onclick=\"watchLive('${tournament.id}')\" class=\"mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fas fa-play-circle\"></i>Watch Live Match</button>` : ''}
                     </div>
                 </div>
             `;}).join('');
@@ -474,4 +498,21 @@ function viewTournamentDetails(tournamentId) {
         console.error('viewTournamentDetails error:', e);
         showNotification('Unable to open tournament page', 'error');
     }
+}
+
+// Open live stream in new tab if tournament has started
+function watchLive(tournamentId){
+    try {
+        fetch(`/tables/tournaments/${tournamentId}`)
+            .then(r=>r.json())
+            .then(j=>{
+                if(!j.success){ showNotification('Live data not found','error'); return; }
+                const t=j.data;
+                const startMs = t.startDate ? new Date(t.startDate).getTime() : 0;
+                if(Date.now() < startMs){ showNotification('Match has not started yet','warning'); return; }
+                if(t.streamUrl){ window.open(t.streamUrl,'_blank'); }
+                else { showNotification('Live stream not available','info'); }
+            })
+            .catch(e=>{ console.error('watchLive error',e); showNotification('Unable to open live stream','error'); });
+    } catch(e){ console.error('watchLive fatal',e); }
 }

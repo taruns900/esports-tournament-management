@@ -15,7 +15,7 @@
     </div>
     <div class="flex items-center gap-3">
       <button onclick="goBack()" class="px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm"><i class="fas fa-arrow-left mr-1"></i>Back</button>
-      <button onclick="logout()" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
+      <button id="nav-logout" onclick="logout()" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
     </div>
   </nav>
 
@@ -35,6 +35,10 @@
           <div class="bg-gray-800/50 rounded-xl p-6">
             <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-info-circle text-gaming-accent mr-2"></i>Details</h2>
             <div class="grid sm:grid-cols-2 gap-4 text-sm" id="t-details"></div>
+            <div id="live-block" class="mt-4">
+              <button id="live-btn" class="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:cursor-not-allowed py-2 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm"><i class="fas fa-play-circle"></i><span>Watch Live Match</span></button>
+              <p id="live-note" class="text-xs text-gray-400 mt-2"></p>
+            </div>
           </div>
           <div class="bg-gray-800/50 rounded-xl p-6" id="organizer-actions" style="display:none">
             <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-cogs text-gaming-primary mr-2"></i>Organizer Actions</h2>
@@ -97,6 +101,14 @@
     function loadSession(){
       const u=localStorage.getItem('esports_user'); const t=localStorage.getItem('esports_user_type');
       if(u&&t){ currentUser=JSON.parse(u); userType=t; }
+      toggleLogoutVisibility();
+    }
+
+    function toggleLogoutVisibility(){
+      const btn=document.getElementById('nav-logout');
+      if(!btn) return;
+      if(currentUser && userType){ btn.classList.remove('hidden'); }
+      else { btn.classList.add('hidden'); }
     }
 
     async function fetchTournament(){
@@ -111,9 +123,18 @@
     function renderTournament(){
       document.getElementById('loading').classList.add('hidden'); document.getElementById('content').classList.remove('hidden');
       document.getElementById('t-name').textContent=tournament.tournamentName;
-      document.getElementById('t-status').textContent=tournament.status.toUpperCase();
-      const statusColorMap={ 'registration-open':'bg-green-600','upcoming':'bg-blue-600','ongoing':'bg-purple-600','completed':'bg-gray-600','cancelled':'bg-red-700'};
-      document.getElementById('t-status').className=`text-xs inline-block px-3 py-1 rounded-full ${statusColorMap[tournament.status]||'bg-gray-600'}`;
+      // Determine if registration deadline has passed; if so, display CLOSED regardless of stored status
+  const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : null;
+  const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
+      const statusEl = document.getElementById('t-status');
+      if (regClosed) {
+        statusEl.textContent = 'CLOSED';
+        statusEl.className = 'text-xs inline-block px-3 py-1 rounded-full bg-red-600';
+      } else {
+        statusEl.textContent = tournament.status.toUpperCase();
+        const statusColorMap={ 'registration-open':'bg-green-600','upcoming':'bg-blue-600','ongoing':'bg-purple-600','completed':'bg-gray-600','cancelled':'bg-red-700'};
+        statusEl.className=`text-xs inline-block px-3 py-1 rounded-full ${statusColorMap[tournament.status]||'bg-gray-600'}`;
+      }
       document.getElementById('t-desc').textContent=tournament.description||'No description provided.';
       const details=document.getElementById('t-details');
       const rows=[
@@ -123,13 +144,56 @@
         ['Prize Pool', '₹'+Number(tournament.prizePool).toLocaleString()],
         ['Entry Fee', tournament.hasEntryFee? '₹'+Number(tournament.entryFee).toLocaleString() : 'FREE'],
         ['Start Date', new Date(tournament.startDate).toLocaleString()],
-        ['Reg Deadline', new Date(tournament.registrationDeadline).toLocaleString()],
+  ['Reg Deadline', tournament.registrationDeadline ? `${new Date(tournament.registrationDeadline).toLocaleString()}${regClosed?' (Passed)':''}` : '—'],
         ['Participants', `${tournament.currentParticipants}/${tournament.maxTeams}`]
       ];
       details.innerHTML=rows.map(([k,v])=>`<div class='bg-gray-700/40 rounded-lg p-3 flex justify-between'><span class='text-gray-400'>${k}</span><span class='font-semibold'>${v}</span></div>`).join('');
+      setupLiveBlock();
       renderParticipants();
       setupJoinBlock();
       setupOrganizerActions();
+    }
+    function setupLiveBlock(){
+      const block=document.getElementById('live-block');
+      const btn=document.getElementById('live-btn');
+      const note=document.getElementById('live-note');
+      if(!block || !btn || !note) return;
+      const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
+      const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : 0;
+
+      function updateLiveState(){
+        const now = Date.now();
+        const isLive = now > regDeadlineMs;
+        if (!isLive) {
+          // Show disabled button with deadline note
+          btn.disabled = true;
+          const dt = new Date(regDeadlineMs);
+          note.textContent = `Registration open until ${dt.toLocaleString()}. Live stream available after deadline.`;
+          btn.onclick = null;
+        } else {
+          // After deadline: enable button if stream URL available
+          if (tournament.streamUrl) {
+            btn.disabled = false;
+            btn.onclick = () => window.open(tournament.streamUrl, '_blank');
+            note.textContent = 'Live stream will open in a new tab.';
+          } else {
+            btn.disabled = true;
+            btn.onclick = null;
+            note.textContent = 'Registration closed, but stream link not provided.';
+          }
+        }
+      }
+
+      // Initial paint and timer to flip state when start time hits
+      updateLiveState();
+      // Check every 30s; keep it lightweight
+      const iv = setInterval(() => {
+        updateLiveState();
+        // Stop checking once live and button enabled (or no stream URL, still keep note)
+        if (Date.now() > regDeadlineMs) {
+          clearInterval(iv);
+        }
+      }, 30000);
     }
 
     // Participants search + paging state
@@ -172,7 +236,9 @@
       if(already){ alreadyBlock.classList.remove('hidden'); document.getElementById('join-block').classList.add('hidden'); return; }
       const now=Date.now(); const startMs=new Date(tournament.startDate).getTime(); const TWO_HOURS=2*60*60*1000;
       const expired= now - startMs > TWO_HOURS;
-      if(tournament.status!=='registration-open'){ joinBtn.disabled=true; joinMsg.textContent='Registration closed.'; return; }
+      const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : 0;
+      const regClosed = Date.now() > regDeadlineMs;
+      if(regClosed || tournament.status!=='registration-open'){ joinBtn.disabled=true; joinMsg.textContent='Registration closed.'; return; }
       if(expired){ joinBtn.disabled=true; joinMsg.textContent='Tournament is past the join window.'; return; }
       if(tournament.currentParticipants >= tournament.maxTeams){ joinBtn.disabled=true; joinMsg.textContent='Tournament is full.'; return; }
       if(fee>0 && wallet < fee){ joinBtn.disabled=true; joinMsg.textContent=`Insufficient funds (Need ₹${fee.toLocaleString()})`; return; }
@@ -221,6 +287,7 @@
 
     async function init(){
       loadSession();
+      toggleLogoutVisibility();
       if(!tournament){ try{ await fetchTournament(); renderTournament(); }catch(e){ showToast(e.message,'error'); } }
       // Hook search and pagination controls
       const search = document.getElementById('p-search');

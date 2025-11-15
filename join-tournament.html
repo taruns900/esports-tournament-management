@@ -45,7 +45,9 @@
       const status = t.status;
       const slots = `${t.currentParticipants}/${t.maxTeams}`;
       const alreadyJoined = Array.isArray(t.participants) && currentUser && t.participants.some(p=>p.playerId===currentUser.id);
-      const canJoin = !alreadyJoined && status==='registration-open' && t.currentParticipants < t.maxTeams && withinWindow(t.startDate) && (!fee || wallet>=fee);
+      const regDeadlineMs = t.registrationDeadline ? new Date(t.registrationDeadline).getTime() : null;
+      const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
+      const canJoin = !alreadyJoined && !regClosed && status==='registration-open' && t.currentParticipants < t.maxTeams && withinWindow(t.startDate) && (!fee || wallet>=fee);
       sum.innerHTML = `
         <div class='flex items-center justify-between'><span class='text-gray-400'>Name</span><span class='font-semibold'>${t.tournamentName}</span></div>
         <div class='flex items-center justify-between'><span class='text-gray-400'>Game</span><span class='font-semibold capitalize'>${t.game}</span></div>
@@ -61,6 +63,7 @@
       btn.disabled = !canJoin;
       
       if(alreadyJoined) note.textContent='You have already joined this tournament. You can view details below.';
+      else if(regClosed) note.textContent='Registration is closed (deadline passed).';
       else if(!withinWindow(t.startDate)) note.textContent='Tournament join window has passed.';
       else if(status!=='registration-open') note.textContent='Registration is closed.';
       else if(t.currentParticipants >= t.maxTeams) note.textContent='Tournament is full.';

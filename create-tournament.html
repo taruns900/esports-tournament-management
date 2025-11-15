@@ -22,8 +22,10 @@
         input, select, textarea { padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #fff; }
         textarea { resize: vertical; min-height: 90px; }
         .game-selection { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
-        .game-card { background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: .25s ease; }
-        .game-card:hover { transform: translateY(-5px); border-color: #667eea; box-shadow: 0 10px 22px rgba(102,126,234,.25); }
+    .game-card { background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: .25s ease; position: relative; font-weight:600; letter-spacing:.3px; }
+    .game-card:hover { transform: translateY(-4px); border-color: #667eea; box-shadow: 0 8px 20px rgba(102,126,234,.25); }
+    .game-card.selected { border-color:#fbbf24; background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(102,126,234,0.25)); box-shadow:0 0 0 3px rgba(251,191,36,0.35),0 8px 24px -4px rgba(102,126,234,.4); }
+    .game-card.selected:after { content:'Selected'; position:absolute; top:6px; right:10px; font-size:.65rem; background:#fbbf24; color:#000; padding:3px 6px; border-radius:6px; font-weight:700; letter-spacing:.5px; }
         .game-card input { display: none; }
         .mode-selection { display: flex; gap: 10px; flex-wrap: wrap; }
         .mode-option { flex: 1; min-width: 120px; }
@@ -83,10 +85,10 @@
                 </div>
 
                 <div class="section-title">🎯 Game Selection</div>
-                <div class="game-selection">
-                    <label class="game-card"><input type="radio" name="game" value="pubg" required />📱 PUBG Mobile</label>
-                    <label class="game-card"><input type="radio" name="game" value="valorant" required />💻 Valorant</label>
-                    <label class="game-card"><input type="radio" name="game" value="cod" required />🎮 Call of Duty</label>
+                <div class="game-selection" id="gameSelection">
+                    <label class="game-card" data-game="pubg"><input type="radio" name="game" value="pubg" required />📱 PUBG Mobile</label>
+                    <label class="game-card" data-game="valorant"><input type="radio" name="game" value="valorant" required />💻 Valorant</label>
+                    <label class="game-card" data-game="cod"><input type="radio" name="game" value="cod" required />🎮 Call of Duty</label>
                 </div>
 
                 <div class="section-title">👥 Tournament Mode</div>
@@ -191,11 +193,29 @@
     const nowLocal = new Date(Date.now() - (new Date().getTimezoneOffset()*60000)).toISOString().slice(0,16);
     startDate.min = nowLocal; regDeadline.min = nowLocal; startDate.addEventListener('change',()=>{ regDeadline.max = startDate.value; });
 
+    // Game selection highlight + keyboard accessibility
+    const gameCards = Array.from(document.querySelectorAll('#gameSelection .game-card'));
+    function updateGameVisual(){
+        gameCards.forEach(card=>{
+            const input = card.querySelector('input');
+            card.classList.toggle('selected', !!input.checked);
+        });
+    }
+    gameCards.forEach(card=>{
+        card.setAttribute('tabindex','0');
+        card.addEventListener('click',()=>{ const input=card.querySelector('input'); input.checked=true; updateGameVisual(); });
+        card.addEventListener('keypress',e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); const input=card.querySelector('input'); input.checked=true; updateGameVisual(); }});
+    });
+    updateGameVisual();
+
     // Submit
     document.getElementById('tournamentForm').addEventListener('submit', async (e)=>{
         e.preventDefault(); if (!currentUser) return;
         if (!startDate.value || !regDeadline.value) return alert('Please fill start & registration deadline.');
         if (new Date(regDeadline.value) >= new Date(startDate.value)) return alert('Registration deadline must be before start date');
+        // Ensure a game is selected (visual radios sometimes missed)
+        const selectedGame = document.querySelector('input[name="game"]:checked');
+        if(!selectedGame){ showToast('Please select a game.','error'); return; }
         const fd = new FormData(e.target); const data = Object.fromEntries(fd.entries());
         // Backward compatibility: if backend expects endDate, mirror startDate
         data.endDate = data.startDate;
@@ -218,7 +238,7 @@
 </body>
 </html>
 
-        // Initial wallet load
+        <!-- // Initial wallet load
         refreshOrganizerWallet();
 
         // Withdraw handler
@@ -359,7 +379,7 @@
             if (confirm('Are you sure you want to cancel? All data will be lost.')) {
                 window.location.href = '/';
             }
-        }
+        } -->
 
         
 
