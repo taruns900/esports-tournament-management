@@ -296,7 +296,18 @@
 
             countEl.textContent = `${tournaments.length} tournament${tournaments.length !== 1 ? 's' : ''} available`;
 
-            grid.innerHTML = tournaments.map(t => `
+            grid.innerHTML = tournaments.map(t => {
+                const regDeadlineMs = t.registrationDeadline ? new Date(t.registrationDeadline).getTime() : null;
+                const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
+                const statusPill = regClosed
+                    ? `<span class="bg-red-600 text-white text-xs px-3 py-1 rounded-full font-semibold">CLOSED</span>`
+                    : `<span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">OPEN</span>`;
+                const regLabel = t.registrationDeadline
+                    ? `${new Date(t.registrationDeadline).toLocaleDateString()}${regClosed ? ' (Passed)' : ''}`
+                    : '—';
+                const ctaLabel = regClosed ? 'View Details' : 'View Details & Register';
+
+                return `
                 <div class="bg-gray-800/50 rounded-xl overflow-hidden hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 shadow-lg">
                     <div class="bg-gradient-to-r from-gaming-primary to-gaming-secondary p-4">
                         <div class="flex justify-between items-start">
@@ -304,9 +315,7 @@
                                 <h3 class="text-xl font-bold text-white mb-1">${t.tournamentName}</h3>
                                 <p class="text-sm text-gray-200">by ${t.organizerName || 'Organizer'}</p>
                             </div>
-                            <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                                OPEN
-                            </span>
+                            ${statusPill}
                         </div>
                     </div>
                     
@@ -337,7 +346,7 @@
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-400">Registration Ends:</span>
-                                <span class="text-white">${new Date(t.registrationDeadline).toLocaleDateString()}</span>
+                                <span class="text-white">${regLabel}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-400">Start Date:</span>
@@ -347,11 +356,11 @@
                         
                         <button onclick="viewTournamentDetails('${t.id}')" 
                                 class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
-                            <i class="fas fa-info-circle mr-2"></i>View Details
+                            <i class="fas fa-info-circle mr-2"></i>${ctaLabel}
                         </button>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         // Show no tournaments message
