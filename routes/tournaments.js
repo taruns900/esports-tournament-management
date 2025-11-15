@@ -403,6 +403,7 @@ router.post('/:id/register', async (req, res) => {
     }
 });
 
+module.exports = router;
 // Release prize back to organizer wallet (simple release without distribution)
 router.post('/:id/release-prize', async (req, res) => {
     try {
@@ -454,92 +455,3 @@ router.post('/:id/release-prize', async (req, res) => {
         res.status(500).json({ success: false, message: 'Error releasing prize', error: err.message });
     }
 });
-
-// Declare result and distribute prizes
-router.post('/:id/declare-result', async (req, res) => {
-    try {
-        const tournament = await Tournament.findOne({ id: req.params.id });
-        if (!tournament) {
-            return res.status(404).json({ success: false, message: 'Tournament not found' });
-        }
-
-        // Check if user is the organizer
-        const { organizerId, winners } = req.body;
-        if (tournament.organizerId !== organizerId) {
-            return res.status(403).json({ success: false, message: 'Only the organizer can declare results' });
-        }
-
-        // Check time: startDate + 2 hours
-        const startTime = new Date(tournament.startDate).getTime();
-        const twoHoursAfter = startTime + (2 * 60 * 60 * 1000);
-        if (Date.now() < twoHoursAfter) {
-            return res.status(400).json({ success: false, message: 'Cannot declare result before 2 hours after start time' });
-        }
-
-        if (tournament.status === 'completed') {
-            return res.status(400).json({ success: false, message: 'Result already declared' });
-        }
-
-        if (!Array.isArray(winners) || winners.length === 0) {
-            return res.status(400).json({ success: false, message: 'Winners list required' });
-        }
-
-        // Validate total prize <= prizePool
-        const totalPrize = winners.reduce((sum, w) => sum + (w.prize || 0), 0);
-        if (totalPrize > tournament.prizePool) {
-            return res.status(400).json({ success: false, message: 'Total prize exceeds prize pool' });
-        }
-
-        // Update tournament
-        tournament.winners = winners;
-        tournament.status = 'completed';
-        tournament.prizeReleasedAt = new Date();
-        await tournament.save();
-
-        // Distribute prizes
-        for (const winner of winners) {
-            if (winner.prize > 0) {
-                const player = await Player.findOne({ id: winner.playerId });
-                if (player) {
-                    player.walletBalance += winner.prize;
-                    await player.save();
-
-                    await Transaction.create({
-                        id: genId(),
-                        userId: winner.playerId,
-                        userType: 'player',
-                        type: 'prize',
-                        amount: winner.prize,
-                        reference: `prize_${tournament.id}_pos${winner.position}`,
-                        meta: { tournamentId: tournament.id, position: winner.position }
-                    });
-                }
-            }
-        }
-
-        // Release any remaining locked prize back to organizer
-        const organizer = await Organizer.findOne({ id: tournament.organizerId });
-        if (organizer && tournament.prizeLocked > 0) {
-            organizer.lockedPrizePool -= tournament.prizeLocked;
-            organizer.walletBalance += tournament.prizeLocked;
-            await organizer.save();
-
-            await Transaction.create({
-                id: genId(),
-                userId: organizer.id,
-                userType: 'organizer',
-                type: 'release',
-                amount: tournament.prizeLocked,
-                reference: `release_remaining_${tournament.id}`,
-                meta: { tournamentId: tournament.id }
-            });
-        }
-
-        res.json({ success: true, message: 'Result declared and prizes distributed', data: tournament });
-    } catch (err) {
-        console.error('Error declaring result:', err);
-        res.status(500).json({ success: false, message: 'Error declaring result', error: err.message });
-    }
-});
-
-module.exports = router;

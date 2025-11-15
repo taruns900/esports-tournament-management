@@ -268,14 +268,7 @@
                 const result = await response.json();
 
                 if (result.success && result.data) {
-                    // Filter to recent tournaments (within 2 hours of start)
-                    const now = Date.now();
-                    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-                    allTournaments = result.data.filter(t => {
-                        if (!t.startDate) return true;
-                        const startMs = new Date(t.startDate).getTime();
-                        return now - startMs < TWO_HOURS_MS;
-                    });
+                    allTournaments = result.data;
                     displayTournaments(allTournaments);
                 } else {
                     showNoTournaments();
@@ -303,22 +296,7 @@
 
             countEl.textContent = `${tournaments.length} tournament${tournaments.length !== 1 ? 's' : ''} available`;
 
-            grid.innerHTML = tournaments.map(t => {
-                const regDeadlineMs = t.registrationDeadline ? new Date(t.registrationDeadline).getTime() : null;
-                const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
-                const startMs = t.startDate ? new Date(t.startDate).getTime() : 0;
-                const isLive = regClosed; // watchable after deadline
-                const alreadyJoined = Array.isArray(t.participants) && playerData && t.participants.some(p => p.playerId === playerData.id);
-                let btnLabel = 'View Details';
-                let btnAction = `viewTournamentDetails('${t.id}')`;
-                if (!regClosed) {
-                    if (alreadyJoined) {
-                        btnLabel = 'View Details';
-                    } else {
-                        btnLabel = 'View Details & Register';
-                    }
-                }
-                return `
+            grid.innerHTML = tournaments.map(t => `
                 <div class="bg-gray-800/50 rounded-xl overflow-hidden hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 shadow-lg">
                     <div class="bg-gradient-to-r from-gaming-primary to-gaming-secondary p-4">
                         <div class="flex justify-between items-start">
@@ -326,7 +304,9 @@
                                 <h3 class="text-xl font-bold text-white mb-1">${t.tournamentName}</h3>
                                 <p class="text-sm text-gray-200">by ${t.organizerName || 'Organizer'}</p>
                             </div>
-                            ${regClosed ? `<span class='bg-red-600 text-white text-xs px-3 py-1 rounded-full font-semibold'>CLOSED</span>` : `<span class='bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold'>OPEN</span>`}
+                            <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                                OPEN
+                            </span>
                         </div>
                     </div>
                     
@@ -356,8 +336,8 @@
                                 <span class="text-white">${t.hasEntryFee ? '₹' + Number(t.entryFee).toLocaleString() : 'FREE'}</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Registration Deadline:</span>
-                                <span class="text-white">${t.registrationDeadline ? `${new Date(t.registrationDeadline).toLocaleDateString()}${regClosed?' (Passed)':''}` : '—'}</span>
+                                <span class="text-gray-400">Registration Ends:</span>
+                                <span class="text-white">${new Date(t.registrationDeadline).toLocaleDateString()}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-400">Start Date:</span>
@@ -365,15 +345,14 @@
                             </div>
                         </div>
                         
-                        <button onclick="${btnAction}" 
+                        <button onclick="viewTournamentDetails('${t.id}')" 
                                 class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
-                            <i class="fas fa-info-circle mr-2"></i>${btnLabel}
+                            <i class="fas fa-info-circle mr-2"></i>View Details
                         </button>
                         ${isLive ? `<button onclick="watchLive('${t.id}')" class="mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fas fa-play-circle"></i>Watch Live Match</button>` : ''}
-                        ${t.discordUrl ? `<button onclick="joinDiscord('${t.id}')" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fab fa-discord"></i>Join Discord</button>` : ''}
                     </div>
                 </div>
-            `}).join('');
+            `).join('');
         }
 
         // Show no tournaments message
@@ -430,19 +409,13 @@
             }).catch(e=>{ console.error('watchLive error',e); showToast('Unable to open live stream','error'); });
         }
 
-        function joinDiscord(id){
-            fetch(`/tables/tournaments/${id}`).then(r=>r.json()).then(j=>{
-                if(!j.success){ showToast('Discord data not found','error'); return; }
-                const t=j.data;
-                if(t.discordUrl){ window.open(t.discordUrl,'_blank'); } else { showToast('Discord link not available','info'); }
-            }).catch(e=>{ console.error('joinDiscord error',e); showToast('Unable to open Discord','error'); });
-        }
-
         // Logout
         function logout() {
-            localStorage.removeItem('esports_user');
-            localStorage.removeItem('esports_user_type');
-            window.location.href = '/';
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('esports_user');
+                localStorage.removeItem('esports_user_type');
+                window.location.href = '/';
+            }
         }
 
         // Deposit handler
