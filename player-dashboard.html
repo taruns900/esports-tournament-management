@@ -349,7 +349,6 @@
                                 class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">
                             <i class="fas fa-info-circle mr-2"></i>View Details
                         </button>
-                        ${isLive ? `<button onclick="watchLive('${t.id}')" class="mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"><i class="fas fa-play-circle"></i>Watch Live Match</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -399,14 +398,6 @@
         function viewTournamentDetails(tournamentId) {
             //showToast('Tournament details page coming soon!','info');
             window.location.href = `/join-tournament.html?id=${encodeURIComponent(tournamentId)}`;
-        }
-
-        function watchLive(id){
-            fetch(`/tables/tournaments/${id}`).then(r=>r.json()).then(j=>{
-                if(!j.success){ showToast('Live data not found','error'); return; }
-                const t=j.data;
-                if(t.streamUrl){ window.open(t.streamUrl,'_blank'); } else { showToast('Live stream not available','info'); }
-            }).catch(e=>{ console.error('watchLive error',e); showToast('Unable to open live stream','error'); });
         }
 
         // Logout
