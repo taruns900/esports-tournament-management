@@ -132,6 +132,17 @@
                         const startMs = new Date(t.startDate).getTime();
                         return now - startMs < TWO_HOURS_MS;
                     });
+
+                    // Sort: OPEN tournaments first, then CLOSED
+                    recent.sort((a, b) => {
+                        const aDeadlineMs = a.registrationDeadline ? new Date(a.registrationDeadline).getTime() : null;
+                        const bDeadlineMs = b.registrationDeadline ? new Date(b.registrationDeadline).getTime() : null;
+                        const aRegClosed = aDeadlineMs ? (now > aDeadlineMs) : false;
+                        const bRegClosed = bDeadlineMs ? (now > bDeadlineMs) : false;
+                        if (aRegClosed === bRegClosed) return 0;
+                        return aRegClosed ? 1 : -1; // OPEN before CLOSED
+                    });
+
                     countEl.textContent = recent.length + ' results';
                     if (recent.length === 0) {
                         grid.innerHTML = '<div class="text-center col-span-full py-12 text-gray-400"><i class="fas fa-clock text-5xl mb-4 opacity-50"></i><p class="text-xl">No tournaments within last 2 hours</p><p class="text-sm mt-2">Check back soon or create one!</p></div>';

@@ -338,6 +338,16 @@ async function loadTournaments() {
                 return now - startMs < TWO_HOURS_MS;
             });
 
+            // Sort: OPEN tournaments first, then CLOSED
+            fresh.sort((a, b) => {
+                const aDeadlineMs = a.registrationDeadline ? new Date(a.registrationDeadline).getTime() : null;
+                const bDeadlineMs = b.registrationDeadline ? new Date(b.registrationDeadline).getTime() : null;
+                const aRegClosed = aDeadlineMs ? (now > aDeadlineMs) : false;
+                const bRegClosed = bDeadlineMs ? (now > bDeadlineMs) : false;
+                if (aRegClosed === bRegClosed) return 0; // same status, keep original order
+                return aRegClosed ? 1 : -1; // OPEN (false) before CLOSED (true)
+            });
+
             const tournamentsContainer = document.getElementById('tournaments-list');
             if (!tournamentsContainer) return;
 

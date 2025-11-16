@@ -294,9 +294,20 @@
                 return;
             }
 
-            countEl.textContent = `${tournaments.length} tournament${tournaments.length !== 1 ? 's' : ''} available`;
+            // Sort: OPEN tournaments first, then CLOSED
+            const now = Date.now();
+            const sorted = [...tournaments].sort((a, b) => {
+                const aDeadlineMs = a.registrationDeadline ? new Date(a.registrationDeadline).getTime() : null;
+                const bDeadlineMs = b.registrationDeadline ? new Date(b.registrationDeadline).getTime() : null;
+                const aRegClosed = aDeadlineMs ? (now > aDeadlineMs) : false;
+                const bRegClosed = bDeadlineMs ? (now > bDeadlineMs) : false;
+                if (aRegClosed === bRegClosed) return 0;
+                return aRegClosed ? 1 : -1; // OPEN before CLOSED
+            });
 
-            grid.innerHTML = tournaments.map(t => {
+            countEl.textContent = `${sorted.length} tournament${sorted.length !== 1 ? 's' : ''} available`;
+
+            grid.innerHTML = sorted.map(t => {
                 const regDeadlineMs = t.registrationDeadline ? new Date(t.registrationDeadline).getTime() : null;
                 const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
                 const statusPill = regClosed
