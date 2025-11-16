@@ -226,9 +226,6 @@
     function setupOrganizerLinkEditor(){
       if(userType!=='organizer'||!currentUser) return;
       if(tournament.organizerId !== currentUser.id) return;
-      // Only allow editing if at least one link was originally provided
-      const hadAnyLinkInitially = !!(tournament.streamUrl || tournament.discordUrl);
-      if (!hadAnyLinkInitially) return;
       const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : 0;
       const regClosed = Date.now() > regDeadlineMs;
       if (regClosed || tournament.status !== 'registration-open') return; // not editable anymore
@@ -252,22 +249,13 @@
           </div>
         </div>
       `;
-      // Safely locate the left column container without relying on escaped Tailwind class selector
-      let leftCol = null;
-      const possible = document.querySelectorAll('.md\:col-span-2');
-      if (possible && possible.length) {
-        leftCol = possible[0];
+      // Find the left column container - it's the parent of organizer-actions
+      const orgActionsBlock = document.getElementById('organizer-actions');
+      if (orgActionsBlock && orgActionsBlock.parentElement) {
+        // Insert before organizer-actions block
+        orgActionsBlock.parentElement.insertBefore(container, orgActionsBlock);
       } else {
-        // Fallback: find the first two-column div containing the details section
-        leftCol = document.getElementById('t-details')?.closest('div');
-      }
-      if (leftCol) {
-        leftCol.appendChild(container);
-      } else {
-        console.warn('Organizer link editor: left column container not found');
-        // As last resort, append to organizer-actions block
-        const orgActions = document.getElementById('organizer-actions');
-        if (orgActions) orgActions.appendChild(container);
+        console.warn('Organizer link editor: Could not find insertion point, appending to body');
       }
 
       const saveBtn = container.querySelector('#save-links');
