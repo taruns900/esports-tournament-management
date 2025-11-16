@@ -41,17 +41,23 @@
               <p id="live-note" class="text-xs text-gray-400 mt-2"></p>
             </div>
           </div>
+          <!-- Public Winners Display (visible to everyone when results declared) -->
+          <div class="bg-gray-800/50 rounded-xl p-6" id="winners-display" style="display:none">
+            <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-trophy text-yellow-400 mr-2"></i>Tournament Winners</h2>
+            <div id="winners-list" class="space-y-3">
+              <!-- Winners injected here -->
+            </div>
+          </div>
+
           <div class="bg-gray-800/50 rounded-xl p-6" id="organizer-actions" style="display:none">
             <h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-cogs text-gaming-primary mr-2"></i>Organizer Actions</h2>
-            <button id="release-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm disabled:opacity-50" disabled>Release Locked Prize</button>
-            <p id="release-note" class="text-xs text-gray-400 mt-3"></p>
-            <div id="declare-result-block" class="mt-6 hidden">
+            <div id="declare-result-block" class="mt-0">
               <h3 class="text-lg font-semibold mb-3 flex items-center"><i class="fas fa-flag-checkered text-gaming-accent mr-2"></i>Declare Result</h3>
               <p class="text-xs text-gray-400 mb-4" id="declare-note"></p>
-              <div class="space-y-3" id="winner-inputs">
-                <!-- Winner inputs injected dynamically -->
-              </div>
-              <button id="declare-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg font-semibold text-sm disabled:opacity-50">Submit Winners</button>
+              <button id="declare-btn" class="w-full bg-red-600 hover:bg-red-700 py-3 rounded-lg font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                <i class="fas fa-trophy"></i>
+                <span>Declare Results (Auto-Select Winners)</span>
+              </button>
               <p id="declare-msg" class="text-xs text-gray-400 mt-2"></p>
             </div>
           </div>
@@ -158,11 +164,12 @@
         ['Participants', `${tournament.currentParticipants}/${tournament.maxTeams}`]
       ];
       details.innerHTML=rows.map(([k,v])=>`<div class='bg-gray-700/40 rounded-lg p-3 flex justify-between'><span class='text-gray-400'>${k}</span><span class='font-semibold'>${v}</span></div>`).join('');
-  setupLiveBlock();
+      displayPublicWinners(); // Show winners if results are visible
+      setupLiveBlock();
       renderParticipants();
       setupJoinBlock();
       setupOrganizerActions();
-  setupOrganizerLinkEditor();
+      setupOrganizerLinkEditor();
     }
     function setupLiveBlock(){
       const block=document.getElementById('live-block');
@@ -171,24 +178,23 @@
       const note=document.getElementById('live-note');
       if(!block || !btn || !note) return;
   const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
-  const endMs = tournament.endDate ? new Date(tournament.endDate).getTime() : (startMs + 2*60*60*1000);
-  const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : 0;
+  const endMs = startMs + 2*60*60*1000; // Strict 2-hour live window from start time
 
       function updateLiveState(){
         const now = Date.now();
-        if (now < regDeadlineMs) {
-          // Stream gated until deadline; Discord always active if provided
+        if (now < startMs) {
+          // Before match start
           btn.disabled = true;
           btn.onclick = null;
-          const dt = new Date(regDeadlineMs);
-          note.textContent = `Registration open until ${dt.toLocaleString()}. Stream available after deadline.`;
+          const dt = new Date(startMs);
+          note.textContent = `Live stream will be available at ${dt.toLocaleString()}.`;
         } else if (now > endMs) {
           // After match end: stream inactive, Discord still accessible
           btn.disabled = true;
           btn.onclick = null;
           note.textContent = 'Match ended.';
         } else {
-          // After deadline: enable button if stream URL available
+          // Between start and 2 hours after start: enable if link exists
           if (tournament.streamUrl) {
             btn.disabled = false;
             btn.onclick = () => window.open(tournament.streamUrl, '_blank');
@@ -196,7 +202,7 @@
           } else {
             btn.disabled = true;
             btn.onclick = null;
-            note.textContent = 'Registration closed, but stream link not provided.';
+            note.textContent = 'Live window open, but stream link not provided by organizer.';
           }
         }
 
@@ -210,7 +216,7 @@
         }
       }
 
-      // Initial paint and timer to flip state when start time hits
+      // Initial paint and timer to flip state around the live window
       updateLiveState();
       // Check every 30s; keep it lightweight
       const iv = setInterval(() => {
@@ -305,14 +311,23 @@
     }
 
     async function setupJoinBlock(){
-      const wallet=await fetchPlayerWallet();
       const fee=tournament.hasEntryFee?Number(tournament.entryFee):0;
       document.getElementById('t-fee').textContent= fee>0? '₹'+fee.toLocaleString() : 'FREE';
-      document.getElementById('p-wallet').textContent='₹'+Number(wallet).toLocaleString();
-      document.getElementById('t-slots').textContent=`${tournament.currentParticipants}/${tournament.maxTeams}`;
       const joinBtn=document.getElementById('join-btn');
       const joinMsg=document.getElementById('join-msg');
       const alreadyBlock=document.getElementById('already-msg');
+      // If not a player (e.g., organizer or not logged in), block joining with clear message
+      if(userType !== 'player' || !currentUser){
+        document.getElementById('p-wallet').textContent='—';
+        document.getElementById('t-slots').textContent=`${tournament.currentParticipants}/${tournament.maxTeams}`;
+        joinBtn.disabled=true;
+        joinMsg.textContent='Only Players can join';
+        return;
+      }
+      // Player wallet after role gate
+      const wallet=await fetchPlayerWallet();
+      document.getElementById('p-wallet').textContent='₹'+Number(wallet).toLocaleString();
+      document.getElementById('t-slots').textContent=`${tournament.currentParticipants}/${tournament.maxTeams}`;
       const already=tournament.participants.some(p=>p.playerId=== (currentUser&&currentUser.id));
       if(already){ alreadyBlock.classList.remove('hidden'); document.getElementById('join-block').classList.add('hidden'); return; }
       const now=Date.now(); const startMs=new Date(tournament.startDate).getTime(); const TWO_HOURS=2*60*60*1000;
@@ -327,7 +342,7 @@
     }
 
     async function attemptJoin(fee){
-      if(userType!=='player'||!currentUser){ showToast('Login as player first','error'); return; }
+      if(userType!=='player'||!currentUser){ showToast('Only Players can join','error'); return; }
       if(!confirm('Confirm join? '+(fee>0?`Entry fee ₹${fee.toLocaleString()} will be deducted.`:'Free entry.')) ) return;
       try{
         const payload={ playerId: currentUser.id, playerName: (currentUser.firstName? (currentUser.firstName+' '+(currentUser.lastName||'')) : (currentUser.name||'Player')).trim() };
@@ -347,23 +362,6 @@
       if(userType!=='organizer'||!currentUser) return;
       if(tournament.organizerId !== currentUser.id) return;
       const block=document.getElementById('organizer-actions'); block.style.display='block';
-      const releaseBtn=document.getElementById('release-btn');
-      const note=document.getElementById('release-note');
-      if(tournament.status==='completed' && (tournament.prizeLocked||0)>0 && !tournament.prizeReleasedAt){
-        releaseBtn.disabled=false;
-        releaseBtn.onclick=async()=>{
-          if(!confirm('Release locked prize back to wallet?')) return;
-          try{
-            const r=await fetch(`/tables/tournaments/${tournament.id}/release-prize`, { method:'POST' });
-            const j=await r.json(); if(!j.success) throw new Error(j.message||'Release failed');
-            showToast('Prize released','success');
-            // refetch tournament
-            const rt=await fetchTournament(); tournament=rt; renderTournament();
-          }catch(e){ showToast(e.message||'Release error','error'); }
-        };
-      } else {
-        releaseBtn.disabled=true; note.textContent='Prize release becomes available only after completion and if prize is still locked.';
-      }
       setupDeclareResult();
     }
 
@@ -375,71 +373,98 @@
       const declareBtn = document.getElementById('declare-btn');
       const declareNote = document.getElementById('declare-note');
       const declareMsg = document.getElementById('declare-msg');
-      const winnerInputs = document.getElementById('winner-inputs');
-      if(!declareBlock||!declareBtn||!declareNote||!winnerInputs) return;
+      if(!declareBlock||!declareBtn||!declareNote) return;
 
       // Determine if match ended
       const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
       const endMs = tournament.endDate ? new Date(tournament.endDate).getTime() : (startMs + 2*60*60*1000);
       const now = Date.now();
       const alreadyDeclared = !!tournament.resultDeclaredAt || tournament.status==='completed';
+      
       if(alreadyDeclared){
         declareBlock.classList.remove('hidden');
         declareNote.textContent = 'Results already declared.';
         declareBtn.disabled = true;
-        winnerInputs.innerHTML = tournament.winners && tournament.winners.length
-          ? tournament.winners.map(w=>`<div class='flex justify-between bg-gray-700/40 px-3 py-2 rounded text-sm'><span>#${w.position} ${w.playerName}</span><span class='text-yellow-400 font-semibold'>₹${(w.prize||0).toLocaleString()}</span></div>`).join('')
-          : '<div class="text-gray-400 text-sm">No winners recorded.</div>';
+        declareBtn.innerHTML = '<i class="fas fa-check-circle"></i><span>Results Declared</span>';
         return;
       }
+      
       if(now < endMs){
-        // Not ended yet: show countdown note but keep hidden
-        return; // organizer must wait; we won't show block until end
+        // Not ended yet: organizer must wait
+        return;
       }
-      // Show form after end
+      
+      // Show button after match ends
       declareBlock.classList.remove('hidden');
-      declareNote.textContent = 'Enter winners and distribute prize pool. Leave prize blank for unpaid positions.';
-
-      // Build 3 default positions (adjustable easily)
-      const defaultPositions = [1,2,3];
-      winnerInputs.innerHTML = defaultPositions.map(pos=>{
-        return `<div class='grid grid-cols-5 gap-2 items-center'>
-          <div class='col-span-1 text-xs text-gray-400'>Position #${pos}</div>
-          <input data-pos='${pos}' data-field='playerId' placeholder='Player ID' class='col-span-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs'/>
-          <input data-pos='${pos}' data-field='playerName' placeholder='Player Name' class='col-span-2 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs'/>
-          <input data-pos='${pos}' data-field='prize' type='number' min='0' placeholder='Prize (₹)' class='col-span-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs'/>
-        </div>`;
-      }).join('');
+      const participantCount = (tournament.participants||[]).length;
+      declareNote.textContent = `Match ended. Click to automatically select 3 random winners from ${participantCount} participants and distribute prizes according to ${tournament.prizeDistribution||'60-30-10'} ratio.`;
 
       declareBtn.onclick = async () => {
+        if(!confirm('Declare results? This will randomly select 3 winners from participants and distribute the prize pool. This action cannot be undone.')){ return; }
         declareMsg.textContent='';
-        const rows = [...winnerInputs.querySelectorAll('input[data-field="playerId"]')].map(input => {
-          const pos = parseInt(input.getAttribute('data-pos'),10);
-          const playerId = input.value.trim();
-          const playerNameEl = winnerInputs.querySelector(`input[data-pos='${pos}'][data-field='playerName']`);
-          const prizeEl = winnerInputs.querySelector(`input[data-pos='${pos}'][data-field='prize']`);
-          const playerName = playerNameEl ? playerNameEl.value.trim() : '';
-          const prizeVal = prizeEl && prizeEl.value ? parseInt(prizeEl.value,10) : 0;
-          if(!playerId || !playerName) return null; // skip incomplete rows
-          return { position: pos, playerId, playerName, prize: isNaN(prizeVal)?0:prizeVal };
-        }).filter(Boolean);
-
-        if(rows.length === 0){ declareMsg.textContent='Provide at least one complete winner row.'; return; }
-        // Simple uniqueness check
-        const positions = new Set(rows.map(r=>r.position));
-        if(positions.size !== rows.length){ declareMsg.textContent='Duplicate positions found.'; return; }
-        declareBtn.disabled=true; declareBtn.textContent='Submitting...';
+        declareBtn.disabled=true;
+        const originalHTML = declareBtn.innerHTML;
+        declareBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>';
+        
         try{
-          const payload={ organizerId: currentUser.id, winners: rows };
-          const r=await fetch(`/tables/tournaments/${tournament.id}/declare-result`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-          const j=await r.json();
+          const payload = { organizerId: currentUser.id };
+          const r = await fetch(`/tables/tournaments/${tournament.id}/declare-result`, { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body: JSON.stringify(payload) 
+          });
+          const j = await r.json();
           if(!r.ok || !j.success) throw new Error(j.message||'Failed to declare');
-          showToast('Results declared successfully','success');
-          // Refetch and rerender
-          const updated = await fetchTournament(); tournament = updated; renderTournament();
-        }catch(e){ showToast(e.message||'Error declaring results','error'); }
-        finally{ declareBtn.disabled=false; declareBtn.textContent='Submit Winners'; }
+          
+          showToast('Results declared successfully! Winners selected and prizes distributed.','success');
+          // Refetch and rerender to show winners
+          const updated = await fetchTournament(); 
+          tournament = updated; 
+          renderTournament();
+        }catch(e){ 
+          showToast(e.message||'Error declaring results','error'); 
+          declareBtn.disabled=false;
+          declareBtn.innerHTML = originalHTML;
+        }
       };
+    }
+
+    function displayPublicWinners(){
+      // Show winners to everyone when resultsVisible is true
+      if(!tournament.resultsVisible || !tournament.winners || tournament.winners.length === 0) return;
+      
+      const winnersDisplay = document.getElementById('winners-display');
+      const winnersList = document.getElementById('winners-list');
+      if(!winnersDisplay || !winnersList) return;
+
+      winnersDisplay.style.display = 'block';
+      
+      const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+      const colors = { 1: 'text-yellow-400', 2: 'text-gray-300', 3: 'text-orange-400' };
+      
+      winnersList.innerHTML = tournament.winners
+        .sort((a,b) => a.position - b.position)
+        .map(w => {
+          const medal = medals[w.position] || '🏆';
+          const color = colors[w.position] || 'text-gaming-primary';
+          return `
+            <div class='bg-gradient-to-r from-gray-700/60 to-gray-800/60 p-4 rounded-lg border border-gray-600/50 hover:border-gaming-primary/50 transition-colors'>
+              <div class='flex items-center justify-between'>
+                <div class='flex items-center gap-3'>
+                  <span class='text-3xl'>${medal}</span>
+                  <div>
+                    <div class='font-semibold text-lg ${color}'>#${w.position} ${w.playerName}</div>
+                    ${w.teamName ? `<div class='text-xs text-gray-400'>${w.teamName}</div>` : ''}
+                  </div>
+                </div>
+                <div class='text-right'>
+                  <div class='text-2xl font-bold text-green-400'>₹${(w.prize||0).toLocaleString()}</div>
+                  <div class='text-xs text-gray-400'>Prize Money</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
     }
 
     async function init(){

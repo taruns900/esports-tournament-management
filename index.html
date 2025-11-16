@@ -183,10 +183,7 @@
                                 <div class="text-gray-400 text-sm">Available Balance</div>
                                 <div class="text-3xl font-bold mt-2" id="org-wallet-balance">₹0</div>
                             </div>
-                            <div class="bg-gray-800/60 rounded-xl p-6">
-                                <div class="text-gray-400 text-sm">Locked (Prize Pools)</div>
-                                <div class="text-3xl font-bold mt-2" id="org-wallet-locked">₹0</div>
-                            </div>
+                            
                             <div class="bg-gray-800/60 rounded-xl p-6">
                                 <div class="text-gray-400 text-sm">Total Balance</div>
                                 <div class="text-3xl font-bold mt-2" id="org-wallet-total">₹0</div>
@@ -531,9 +528,10 @@
                 const json = await res.json();
                 if (json.success) {
                     const org = json.data;
-                    document.getElementById('org-wallet-balance').textContent = '₹' + (org.walletBalance || 0);
-                    document.getElementById('org-wallet-locked').textContent = '₹' + (org.lockedPrizePool || 0);
-                    document.getElementById('org-wallet-total').textContent = '₹' + ((org.walletBalance || 0) + (org.lockedPrizePool || 0));
+                    const balEl = document.getElementById('org-wallet-balance');
+                    const totalEl = document.getElementById('org-wallet-total');
+                    if (balEl) balEl.textContent = '₹' + (org.walletBalance || 0);
+                    if (totalEl) totalEl.textContent = '₹' + (org.walletBalance || 0); // total now equals available since locked is hidden
                 }
             } catch (e) { console.error('Wallet refresh error', e); }
         }

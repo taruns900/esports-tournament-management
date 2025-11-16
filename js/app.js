@@ -361,9 +361,9 @@ async function loadTournaments() {
                 const regDeadlineMs = tournament.registrationDeadline ? new Date(tournament.registrationDeadline).getTime() : null;
                 const regClosed = regDeadlineMs ? (Date.now() > regDeadlineMs) : false;
                 const startMs = tournament.startDate ? new Date(tournament.startDate).getTime() : 0;
-                const endMs = tournament.endDate ? new Date(tournament.endDate).getTime() : (startMs + 2*60*60*1000);
+                const endMs = startMs + 2*60*60*1000; // live window strictly 2 hours after start
                 const now = Date.now();
-                const liveWindow = regDeadlineMs ? (now >= regDeadlineMs && now <= endMs) : (now <= endMs);
+                const liveWindow = now >= startMs && now <= endMs;
                 let btnLabel;
                 let btnAction;
                 if (!loggedIn) {

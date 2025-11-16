@@ -124,17 +124,9 @@
                 const countEl = document.getElementById('tournaments-count');
 
                 if (json.success && json.data.length > 0) {
-                    // 2-hour filtering
                     const now = Date.now();
-                    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-                    const recent = json.data.filter(t => {
-                        if (!t.startDate) return true;
-                        const startMs = new Date(t.startDate).getTime();
-                        return now - startMs < TWO_HOURS_MS;
-                    });
-
-                    // Sort: OPEN tournaments first, then CLOSED
-                    recent.sort((a, b) => {
+                    // Sort: OPEN tournaments first, then CLOSED (by registration deadline)
+                    const sorted = [...json.data].sort((a, b) => {
                         const aDeadlineMs = a.registrationDeadline ? new Date(a.registrationDeadline).getTime() : null;
                         const bDeadlineMs = b.registrationDeadline ? new Date(b.registrationDeadline).getTime() : null;
                         const aRegClosed = aDeadlineMs ? (now > aDeadlineMs) : false;
@@ -143,18 +135,33 @@
                         return aRegClosed ? 1 : -1; // OPEN before CLOSED
                     });
 
-                    countEl.textContent = recent.length + ' results';
-                    if (recent.length === 0) {
-                        grid.innerHTML = '<div class="text-center col-span-full py-12 text-gray-400"><i class="fas fa-clock text-5xl mb-4 opacity-50"></i><p class="text-xl">No tournaments within last 2 hours</p><p class="text-sm mt-2">Check back soon or create one!</p></div>';
+                    countEl.textContent = sorted.length + ' results';
+                    if (sorted.length === 0) {
+                        grid.innerHTML = '<div class="text-center col-span-full py-12 text-gray-400"><i class="fas fa-trophy text-5xl mb-4 opacity-50"></i><p class="text-xl">No tournaments found</p><p class="text-sm mt-2">Check back soon or create one!</p></div>';
                         return;
                     }
-                    grid.innerHTML = recent.map(t => {
+                    grid.innerHTML = sorted.map(t => {
                         const startMs = t.startDate ? new Date(t.startDate).getTime() : 0;
-                        const endMs = t.endDate ? new Date(t.endDate).getTime() : (startMs + 2*60*60*1000);
+                        const endMs = startMs + 2*60*60*1000; // live window strictly 2 hours after start
                         const regDeadlineMs = t.registrationDeadline ? new Date(t.registrationDeadline).getTime() : null;
                         const now = Date.now();
                         const regClosed = regDeadlineMs ? (now > regDeadlineMs) : false;
-                        const liveWindow = regDeadlineMs ? (now >= regDeadlineMs && now <= endMs) : (now <= endMs);
+                        const liveWindow = now >= startMs && now <= endMs;
+                        // Decide CTA based on user type
+                        let ctaLabel, ctaOnclick;
+                        const isPlayer = (userType === 'player');
+                        if (!isPlayer) {
+                            ctaLabel = 'View Details';
+                            ctaOnclick = `window.location.href='/tournament.html?id=${t.id}'`;
+                        } else {
+                            if (regClosed) {
+                                ctaLabel = 'View Details';
+                                ctaOnclick = `window.location.href='/tournament.html?id=${t.id}'`;
+                            } else {
+                                ctaLabel = 'View Details & Register';
+                                ctaOnclick = `openJoin('${t.id}')`;
+                            }
+                        }
                         return `
                         <div class="bg-gray-800/50 rounded-xl overflow-hidden hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105">
                             <div class="bg-gradient-to-r from-gaming-primary to-gaming-secondary p-4">
@@ -177,9 +184,7 @@
                                     <div class="flex justify-between"><span class="text-gray-400">Registration Deadline:</span><span class="text-white">${t.registrationDeadline ? `${new Date(t.registrationDeadline).toLocaleDateString()}${regClosed?' (Passed)':''}` : '—'}</span></div>
                                     <div class="flex justify-between"><span class="text-gray-400">Start Date:</span><span class="text-white">${new Date(t.startDate).toLocaleDateString()}</span></div>
                                 </div>
-                                ${regClosed
-                                    ? `<button onclick="window.location.href='/tournament.html?id=${t.id}'" class="w-full bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-semibold transition-colors">View Details</button>`
-                                    : `<button onclick="openJoin('${t.id}')" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors">View Details & Register</button>`}
+                                <button onclick="${ctaOnclick}" class="w-full ${regClosed? 'bg-gray-700 hover:bg-gray-600':'bg-gaming-primary hover:bg-gaming-secondary'} py-3 rounded-lg font-semibold transition-colors">${ctaLabel}</button>
                                 ${(liveWindow && t.streamUrl) ? `<button onclick=\"watchLive('${t.id}')\" class=\"mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fas fa-play-circle\"></i>Watch Live Match</button>` : ''}
                                 ${t.discordUrl ? `<button onclick=\"joinDiscord('${t.id}')\" class=\"mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fab fa-discord\"></i>Join Discord</button>` : ''}
                             </div>
@@ -259,22 +264,8 @@
                     showToast(err.message||'Registration error','error');
                 }
             } else if (userType === 'organizer') {
-                // Organizer flow – potentially show prize release if completed
-                try{
-                    const details = await fetch(`/tables/tournaments/${id}`).then(r=>r.json());
-                    if (!details.success) throw new Error('Failed to fetch tournament');
-                    const t = details.data;
-                    if (t.organizerId === currentUser.id && t.status === 'completed' && (t.prizeLocked||0)>0 && !t.prizeReleasedAt){
-                        if (confirm('Release locked prize back to wallet?')){
-                            const res = await fetch(`/tables/tournaments/${id}/release-prize`, { method: 'POST' });
-                            const json = await res.json();
-                            if (!res.ok || !json.success) throw new Error(json.message||'Release failed');
-                            showToast('Prize released back to wallet.','success');
-                        }
-                    } else {
-                        showToast('Organizer view: prize release available after completion.','info');
-                    }
-                }catch(e){ showToast(e.message||'Error','error');}
+                // Organizer: direct to details page for actions
+                window.location.href = `/tournament.html?id=${id}`;
             }
         }
 

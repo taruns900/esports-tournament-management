@@ -136,7 +136,8 @@ const tournamentSchema = new mongoose.Schema({
         teamName: String,
         prize: Number
     }],
-    resultDeclaredAt: { type: Date, default: null }
+    resultDeclaredAt: { type: Date, default: null },
+    resultsVisible: { type: Boolean, default: false }
 }, {
     timestamps: true
 });

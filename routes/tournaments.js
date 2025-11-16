@@ -439,10 +439,10 @@ router.post('/:id/register', async (req, res) => {
     }
 });
 
-// POST declare tournament result (organizer-only after match end)
+// POST declare tournament result (organizer-only after match end) - AUTO SELECTS 3 RANDOM WINNERS
 router.post('/:id/declare-result', async (req, res) => {
     try {
-        const { organizerId, winners = [] } = req.body || {};
+        const { organizerId } = req.body || {};
         const tournament = await Tournament.findOne({ id: req.params.id });
         if (!tournament) return res.status(404).json({ success: false, message: 'Tournament not found' });
 
@@ -463,29 +463,37 @@ router.post('/:id/declare-result', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Match not finished yet' });
         }
 
-        // Basic winner validation: positions unique, prize total <= prizeLocked + entryFeeCollected budget
-        const uniqPositions = new Set();
-        let totalPrize = 0;
-        for (const w of winners) {
-            if (!w || typeof w !== 'object') continue;
-            const { position, playerId, playerName, prize = 0 } = w;
-            if (position == null || !playerId || !playerName) {
-                return res.status(400).json({ success: false, message: 'Winner entries must include position, playerId, playerName' });
-            }
-            if (uniqPositions.has(position)) {
-                return res.status(400).json({ success: false, message: 'Duplicate winner position: ' + position });
-            }
-            uniqPositions.add(position);
-            if (prize < 0) return res.status(400).json({ success: false, message: 'Prize cannot be negative' });
-            totalPrize += prize;
+        // Must have at least 3 participants
+        if (!tournament.participants || tournament.participants.length < 3) {
+            return res.status(400).json({ success: false, message: 'Need at least 3 participants to declare results' });
         }
 
-        const prizeBudget = (tournament.prizeLocked || 0);
-        if (totalPrize > prizeBudget) {
-            return res.status(400).json({ success: false, message: `Total prize ${totalPrize} exceeds locked pool ${prizeBudget}` });
+        // Parse prize distribution (e.g., "60-30-10")
+        const distro = (tournament.prizeDistribution || '60-30-10').split('-').map(v => parseInt(v, 10));
+        if (distro.length < 3 || distro.some(v => isNaN(v) || v < 0)) {
+            return res.status(400).json({ success: false, message: 'Invalid prize distribution format' });
         }
 
-        // Credit winners (players) and deduct locked prize from organizer's locked pool accordingly
+        const totalPercent = distro[0] + distro[1] + distro[2];
+        const prizePool = tournament.prizeLocked || 0;
+
+        // Calculate prize amounts
+        const prize1 = Math.floor((prizePool * distro[0]) / totalPercent);
+        const prize2 = Math.floor((prizePool * distro[1]) / totalPercent);
+        const prize3 = Math.floor((prizePool * distro[2]) / totalPercent);
+        const totalPrize = prize1 + prize2 + prize3;
+
+        // Randomly select 3 winners from participants
+        const shuffled = [...tournament.participants].sort(() => Math.random() - 0.5);
+        const selectedWinners = shuffled.slice(0, 3);
+
+        const winners = [
+            { position: 1, playerId: selectedWinners[0].playerId, playerName: selectedWinners[0].playerName, teamName: selectedWinners[0].teamName || selectedWinners[0].playerName, prize: prize1 },
+            { position: 2, playerId: selectedWinners[1].playerId, playerName: selectedWinners[1].playerName, teamName: selectedWinners[1].teamName || selectedWinners[1].playerName, prize: prize2 },
+            { position: 3, playerId: selectedWinners[2].playerId, playerName: selectedWinners[2].playerName, teamName: selectedWinners[2].teamName || selectedWinners[2].playerName, prize: prize3 }
+        ];
+
+        // Credit winners (players) and deduct locked prize from organizer's locked pool
         const organizer = await Organizer.findOne({ id: tournament.organizerId });
         if (!organizer) return res.status(404).json({ success: false, message: 'Organizer not found' });
         if ((organizer.lockedPrizePool || 0) < totalPrize) {
@@ -494,14 +502,13 @@ router.post('/:id/declare-result', async (req, res) => {
 
         // Apply transactions for each winner prize
         for (const w of winners) {
-            if (!w) continue;
             const player = await Player.findOne({ id: w.playerId });
             if (!player) {
                 return res.status(404).json({ success: false, message: 'Player winner not found: ' + w.playerId });
             }
-            player.walletBalance = (player.walletBalance || 0) + (w.prize || 0);
+            player.walletBalance = (player.walletBalance || 0) + w.prize;
             await player.save();
-            if ((w.prize || 0) > 0) {
+            if (w.prize > 0) {
                 await Transaction.create({
                     id: genId(),
                     userId: player.id,
@@ -520,14 +527,9 @@ router.post('/:id/declare-result', async (req, res) => {
         tournament.prizeLocked = (tournament.prizeLocked || 0) - totalPrize;
 
         // Persist winners list to tournament
-        tournament.winners = winners.map(w => ({
-            position: w.position,
-            playerId: w.playerId,
-            playerName: w.playerName,
-            teamName: w.teamName || w.playerName,
-            prize: w.prize || 0
-        }));
+        tournament.winners = winners;
         tournament.resultDeclaredAt = new Date();
+        tournament.resultsVisible = true; // Make results publicly visible
         tournament.status = 'completed';
         await tournament.save();
 
@@ -551,54 +553,3 @@ router.post('/:id/declare-result', async (req, res) => {
     }
 });
 module.exports = router;
-// Release prize back to organizer wallet (simple release without distribution)
-router.post('/:id/release-prize', async (req, res) => {
-    try {
-        const tournament = await Tournament.findOne({ id: req.params.id });
-        if (!tournament) {
-            return res.status(404).json({ success: false, message: 'Tournament not found' });
-        }
-        if (tournament.status !== 'completed') {
-            return res.status(400).json({ success: false, message: 'Tournament not completed yet' });
-        }
-        if (!tournament.prizeLocked || tournament.prizeLocked <= 0) {
-            return res.status(400).json({ success: false, message: 'No locked prize to release' });
-        }
-        if (tournament.prizeReleasedAt) {
-            return res.status(400).json({ success: false, message: 'Prize already released' });
-        }
-
-        const organizer = await Organizer.findOne({ id: tournament.organizerId });
-        if (!organizer) {
-            return res.status(404).json({ success: false, message: 'Organizer not found' });
-        }
-
-        const amount = tournament.prizeLocked;
-        // Move from locked to wallet (in real app this would distribute to winners)
-        if ((organizer.lockedPrizePool || 0) < amount) {
-            return res.status(400).json({ success: false, message: 'Organizer locked pool insufficient' });
-        }
-        organizer.lockedPrizePool -= amount;
-        organizer.walletBalance += amount;
-        await organizer.save();
-
-        tournament.prizeLocked = 0;
-        tournament.prizeReleasedAt = new Date();
-        await tournament.save();
-
-        await Transaction.create({
-            id: genId(),
-            userId: organizer.id,
-            userType: 'organizer',
-            type: 'release',
-            amount,
-            reference: `release_prize_${tournament.id}`,
-            meta: { tournamentId: tournament.id }
-        });
-
-        res.json({ success: true, message: 'Prize released', data: { organizerBalance: organizer.walletBalance, tournamentId: tournament.id } });
-    } catch (err) {
-        console.error('Error releasing prize:', err);
-        res.status(500).json({ success: false, message: 'Error releasing prize', error: err.message });
-    }
-});
