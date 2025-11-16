@@ -135,7 +135,8 @@ const tournamentSchema = new mongoose.Schema({
         playerName: String,
         teamName: String,
         prize: Number
-    }]
+    }],
+    resultDeclaredAt: { type: Date, default: null }
 }, {
     timestamps: true
 });

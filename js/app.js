@@ -399,7 +399,7 @@ async function loadTournaments() {
                         </div>
                         <button onclick="${btnAction}" class="w-full bg-gaming-primary hover:bg-gaming-secondary py-3 rounded-lg font-semibold transition-colors"> ${btnLabel}</button>
                         ${(liveWindow && tournament.streamUrl) ? `<button onclick=\"watchLive('${tournament.id}')\" class=\"mt-3 w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fas fa-play-circle\"></i>Watch Live Match</button>` : ''}
-                        ${(liveWindow && tournament.discordUrl) ? `<button onclick=\"joinDiscord('${tournament.id}')\" class=\"mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fab fa-discord\"></i>Join Discord</button>` : ''}
+                        ${tournament.discordUrl ? `<button onclick=\"joinDiscord('${tournament.id}')\" class=\"mt-3 w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2\"><i class=\"fab fa-discord\"></i>Join Discord</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
